@@ -1031,7 +1031,7 @@ Hooks["Lower Graphics"] = function(on)
 end
 
 --==================================================
--- GUI
+-- GUI - SIMPLE PURPLE LAYOUT (REFERENCE STYLE)
 --==================================================
 
 local gui = make("ScreenGui", {
@@ -1045,14 +1045,16 @@ local gui = make("ScreenGui", {
 local launcher = make("TextButton", {
     Name = "Launcher",
     AnchorPoint = Vector2.new(0, 0.5),
-    Position = UDim2.new(0, 12, 0.5, 0),
+    Position = UDim2.new(0, 18, 0.5, 0),
     Size = UDim2.fromOffset(58, 58),
-    BackgroundColor3 = COLORS.panel,
+    BackgroundColor3 = Color3.fromRGB(22, 16, 34),
+    BackgroundTransparency = 0.08,
     Text = "A",
-    TextColor3 = COLORS.white,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
     Font = Enum.Font.GothamBlack,
     TextSize = 28,
     AutoButtonColor = false,
+    ZIndex = 20,
 }, gui)
 round(launcher, 29)
 stroke(launcher, COLORS.purple, 2)
@@ -1061,103 +1063,153 @@ local main = make("Frame", {
     Name = "Main",
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.5, 0.5),
-    Size = UDim2.new(0, 680, 0, 470),
-    BackgroundColor3 = COLORS.bg,
+    Size = UDim2.fromOffset(780, 540),
+    BackgroundColor3 = Color3.fromRGB(12, 8, 20),
+    BackgroundTransparency = 0.12,
     Visible = false,
+    ZIndex = 5,
 }, gui)
 round(main, 14)
-stroke(main, COLORS.purple, 1.5)
+stroke(main, COLORS.purple, 2)
+
+local uiScale = make("UIScale", {Scale = 1}, main)
+local function updateUIScale()
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+    local vp = camera.ViewportSize
+    uiScale.Scale = math.clamp(math.min(vp.X / 900, vp.Y / 650), 0.72, 1)
+end
+updateUIScale()
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(updateUIScale)
+if workspace.CurrentCamera then
+    workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateUIScale)
+end
 
 local top = make("Frame", {
     Name = "Top",
-    Size = UDim2.new(1, 0, 0, 58),
-    BackgroundColor3 = COLORS.panel,
+    Size = UDim2.new(1, 0, 0, 64),
+    BackgroundColor3 = Color3.fromRGB(18, 11, 30),
+    BackgroundTransparency = 0.12,
+    ZIndex = 6,
 }, main)
 round(top, 14)
 
 make("TextLabel", {
-    Position = UDim2.fromOffset(18, 7),
-    Size = UDim2.new(1, -110, 0, 25),
+    Position = UDim2.fromOffset(20, 10),
+    Size = UDim2.fromOffset(250, 25),
     BackgroundTransparency = 1,
-    Text = "ALETTA CREATOR",
+    Text = "Aletta Creator",
     TextColor3 = COLORS.white,
-    Font = Enum.Font.GothamBlack,
-    TextSize = 18,
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
     TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 7,
 }, top)
 
 make("TextLabel", {
-    Position = UDim2.fromOffset(19, 31),
-    Size = UDim2.new(1, -110, 0, 18),
+    Position = UDim2.fromOffset(285, 12),
+    Size = UDim2.new(1, -390, 0, 22),
     BackgroundTransparency = 1,
-    Text = "VD MAP • Developer / Test Edition",
-    TextColor3 = COLORS.sub,
-    Font = Enum.Font.Gotham,
-    TextSize = 11,
+    Text = "Violence District - Developer Test",
+    TextColor3 = COLORS.text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 14,
     TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 7,
 }, top)
 
-local close = make("TextButton", {
+local minimize = make("TextButton", {
     AnchorPoint = Vector2.new(1, 0.5),
-    Position = UDim2.new(1, -14, 0.5, 0),
-    Size = UDim2.fromOffset(36, 36),
-    BackgroundColor3 = COLORS.panel2,
-    Text = "×",
+    Position = UDim2.new(1, -16, 0.5, 0),
+    Size = UDim2.fromOffset(38, 34),
+    BackgroundTransparency = 1,
+    Text = "−",
     TextColor3 = COLORS.white,
     Font = Enum.Font.GothamBold,
-    TextSize = 22,
+    TextSize = 24,
     AutoButtonColor = false,
+    ZIndex = 7,
 }, top)
-round(close, 10)
 
 local sidebar = make("ScrollingFrame", {
     Name = "Sidebar",
-    Position = UDim2.new(0, 10, 0, 68),
-    Size = UDim2.new(0, 150, 1, -78),
-    BackgroundColor3 = COLORS.panel,
+    Position = UDim2.fromOffset(14, 76),
+    Size = UDim2.fromOffset(225, 450),
+    BackgroundColor3 = Color3.fromRGB(15, 10, 24),
+    BackgroundTransparency = 0.28,
     BorderSizePixel = 0,
-    ScrollBarThickness = 3,
+    ScrollBarThickness = 2,
     CanvasSize = UDim2.fromOffset(0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    ZIndex = 6,
 }, main)
 round(sidebar, 10)
 
+make("UIPadding", {
+    PaddingLeft = UDim.new(0, 10),
+    PaddingRight = UDim.new(0, 10),
+    PaddingTop = UDim.new(0, 8),
+    PaddingBottom = UDim.new(0, 8),
+}, sidebar)
 make("UIListLayout", {
-    Padding = UDim.new(0, 5),
+    Padding = UDim.new(0, 3),
     SortOrder = Enum.SortOrder.LayoutOrder,
 }, sidebar)
 
 local content = make("Frame", {
     Name = "Content",
-    Position = UDim2.new(0, 170, 0, 68),
-    Size = UDim2.new(1, -180, 1, -78),
+    Position = UDim2.fromOffset(250, 76),
+    Size = UDim2.new(1, -264, 1, -90),
     BackgroundTransparency = 1,
+    ZIndex = 6,
 }, main)
+
+local searchBox = make("TextBox", {
+    Name = "Search",
+    Position = UDim2.fromOffset(0, 0),
+    Size = UDim2.new(1, 0, 0, 38),
+    BackgroundColor3 = Color3.fromRGB(18, 12, 29),
+    BackgroundTransparency = 0.08,
+    BorderSizePixel = 0,
+    PlaceholderText = "⌕  Search feature...",
+    PlaceholderColor3 = COLORS.sub,
+    Text = "",
+    TextColor3 = COLORS.white,
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    ClearTextOnFocus = false,
+    ZIndex = 7,
+}, content)
+round(searchBox, 8)
+stroke(searchBox, Color3.fromRGB(72, 47, 105), 1)
 
 local pages = {}
 local tabButtons = {}
+local pageTitles = {}
 
 local function createPage(name)
     local page = make("ScrollingFrame", {
         Name = name,
-        Size = UDim2.fromScale(1, 1),
+        Position = UDim2.fromOffset(0, 48),
+        Size = UDim2.new(1, 0, 1, -48),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
-        ScrollBarThickness = 4,
+        ScrollBarThickness = 3,
         CanvasSize = UDim2.fromOffset(0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         Visible = false,
+        ZIndex = 6,
     }, content)
 
     make("UIPadding", {
-        PaddingLeft = UDim.new(0, 5),
-        PaddingRight = UDim.new(0, 8),
+        PaddingLeft = UDim.new(0, 2),
+        PaddingRight = UDim.new(0, 4),
         PaddingTop = UDim.new(0, 2),
-        PaddingBottom = UDim.new(0, 10),
+        PaddingBottom = UDim.new(0, 12),
     }, page)
 
     make("UIListLayout", {
-        Padding = UDim.new(0, 7),
+        Padding = UDim.new(0, 6),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, page)
 
@@ -1169,56 +1221,78 @@ local function showPage(name)
     for pageName, page in pairs(pages) do
         page.Visible = pageName == name
     end
-
     for tabName, button in pairs(tabButtons) do
-        button.BackgroundColor3 =
-            tabName == name and COLORS.purple2 or COLORS.panel
+        button.BackgroundColor3 = tabName == name and COLORS.purple or Color3.fromRGB(15, 10, 24)
+        button.TextColor3 = tabName == name and COLORS.white or COLORS.text
     end
+    local title = pageTitles[name] or name
+    searchBox.Text = ""
+    searchBox.PlaceholderText = "⌕  Search " .. title .. "..."
 end
+
+local displayNames = {
+    ["Settings"] = "Pengaturan",
+    ["Config"] = "Konfigurasi",
+    ["Info"] = "Informasi",
+}
+
+local tabIcons = {
+    ["Survivor"] = "👤",
+    ["Killer"] = "🔪",
+    ["Auto Farm [BETA]"] = "📜",
+    ["ESP"] = "👁",
+    ["Aimbot"] = "🎯",
+    ["Animation"] = "▶",
+    ["Settings"] = "⚙",
+    ["Config"] = "▣",
+    ["Automation"] = "⚡",
+    ["Info"] = "ⓘ",
+}
 
 local function createTab(name)
     local button = make("TextButton", {
-        Size = UDim2.new(1, -10, 0, 34),
-        BackgroundColor3 = COLORS.panel,
-        Text = name,
+        Size = UDim2.new(1, 0, 0, 38),
+        BackgroundColor3 = Color3.fromRGB(15, 10, 24),
+        BackgroundTransparency = 0.12,
+        BorderSizePixel = 0,
+        Text = (tabIcons[name] or "•") .. "  " .. (displayNames[name] or name),
         TextColor3 = COLORS.text,
         Font = Enum.Font.GothamBold,
-        TextSize = 12,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
         AutoButtonColor = false,
+        ZIndex = 7,
     }, sidebar)
-    round(button, 8)
-
+    round(button, 7)
     tabButtons[name] = button
-
     button.MouseButton1Click:Connect(function()
         showPage(name)
     end)
-
     return button
 end
 
 local function addTitle(page, title, description)
+    pageTitles[page.Name] = title
     local box = make("Frame", {
-        Size = UDim2.new(1, -5, 0, description and 54 or 36),
-        BackgroundColor3 = COLORS.panel,
+        Size = UDim2.new(1, -4, 0, description and 56 or 38),
+        BackgroundTransparency = 1,
     }, page)
-    round(box, 9)
 
     make("TextLabel", {
-        Position = UDim2.fromOffset(12, 7),
-        Size = UDim2.new(1, -24, 0, 20),
+        Position = UDim2.fromOffset(4, 4),
+        Size = UDim2.new(1, -8, 0, 24),
         BackgroundTransparency = 1,
-        Text = title,
+        Text = "│ " .. title,
         TextColor3 = COLORS.white,
         Font = Enum.Font.GothamBold,
-        TextSize = 14,
+        TextSize = 17,
         TextXAlignment = Enum.TextXAlignment.Left,
     }, box)
 
     if description then
         make("TextLabel", {
-            Position = UDim2.fromOffset(12, 27),
-            Size = UDim2.new(1, -24, 0, 20),
+            Position = UDim2.fromOffset(7, 30),
+            Size = UDim2.new(1, -12, 0, 20),
             BackgroundTransparency = 1,
             Text = description,
             TextColor3 = COLORS.sub,
@@ -1228,292 +1302,98 @@ local function addTitle(page, title, description)
             TextXAlignment = Enum.TextXAlignment.Left,
         }, box)
     end
-
     return box
 end
 
-local function addButton(page, text, callback)
-    local button = make("TextButton", {
-        Size = UDim2.new(1, -5, 0, 36),
-        BackgroundColor3 = COLORS.panel,
-        Text = text,
-        TextColor3 = COLORS.text,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        AutoButtonColor = false,
-    }, page)
-    round(button, 8)
-    stroke(button, COLORS.panel2, 1)
-
-    button.MouseButton1Click:Connect(function()
-        safe(callback)
-    end)
-
-    return button
-end
-
-local function addToggle(page, name, default, callback)
-    Values[name] = default
-
-    local row = make("Frame", {
-        Size = UDim2.new(1, -5, 0, 40),
-        BackgroundColor3 = COLORS.panel,
-    }, page)
-    round(row, 8)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 0),
-        Size = UDim2.new(1, -70, 1, 0),
-        BackgroundTransparency = 1,
-        Text = name,
-        TextColor3 = COLORS.text,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-
-    local toggle = make("TextButton", {
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.fromOffset(42, 22),
-        BackgroundColor3 = default and COLORS.purple or COLORS.panel2,
-        Text = "",
-        AutoButtonColor = false,
-    }, row)
-    round(toggle, 11)
-
-    local knob = make("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = default
-            and UDim2.new(1, -11, 0.5, 0)
-            or UDim2.new(0, 11, 0.5, 0),
-        Size = UDim2.fromOffset(16, 16),
-        BackgroundColor3 = COLORS.white,
-    }, toggle)
-    round(knob, 8)
-
-    local function set(value)
-        Values[name] = value == true
-
-        toggle.BackgroundColor3 =
-            Values[name] and COLORS.purple or COLORS.panel2
-
-        TweenService:Create(
-            knob,
-            TweenInfo.new(0.12),
-            {
-                Position = Values[name]
-                    and UDim2.new(1, -11, 0.5, 0)
-                    or UDim2.new(0, 11, 0.5, 0)
-            }
-        ):Play()
-
-        Controls[name] = Controls[name] or {}
-        Controls[name].set = set
-
-        FeatureManager:Set(name, Values[name])
-
-        if callback then
-            safe(callback, Values[name])
-        end
-    end
-
-    toggle.MouseButton1Click:Connect(function()
-        set(not Values[name])
-    end)
-
-    Controls[name] = {set = set}
-    return row
-end
-
-local function addInput(page, name, default, callback)
-    Values[name] = default
-
-    local row = make("Frame", {
-        Size = UDim2.new(1, -5, 0, 48),
-        BackgroundColor3 = COLORS.panel,
-    }, page)
-    round(row, 8)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 0),
-        Size = UDim2.new(0.52, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = name,
-        TextColor3 = COLORS.text,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-
-    local box = make("TextBox", {
-        AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -10, 0.5, 0),
-        Size = UDim2.new(0.43, 0, 0, 30),
-        BackgroundColor3 = COLORS.panel2,
-        Text = tostring(default),
-        PlaceholderText = tostring(default),
-        TextColor3 = COLORS.white,
-        PlaceholderColor3 = COLORS.sub,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        ClearTextOnFocus = false,
-    }, row)
-    round(box, 7)
-
-    local function commit()
-        local value = box.Text
-        Values[name] = value
-
-        local numeric = tonumber(value)
-        if numeric then
-            Values[name] = numeric
-        end
-
-        if callback then
-            safe(callback, Values[name])
-        end
-    end
-
-    box.FocusLost:Connect(commit)
-
-    Controls[name] = {
-        set = function(v)
-            Values[name] = v
-            box.Text = tostring(v)
-
-            if callback then
-                safe(callback, v)
-            end
-        end
-    }
-
-    return row
-end
-
--- Horizontal slider: value diubah dengan menggeser garis, bukan mengetik angka.
-local function addSlider(page, name, minValue, maxValue, default, callback, suffix)
-    Values[name] = math.clamp(tonumber(default) or minValue, minValue, maxValue)
-
-    local row = make("Frame", {
-        Size = UDim2.new(1, -5, 0, 64),
-        BackgroundColor3 = COLORS.panel,
-    }, page)
-    round(row, 8)
-
-    make("TextLabel", {
-        Position = UDim2.fromOffset(12, 6),
-        Size = UDim2.new(1, -90, 0, 20),
-        BackgroundTransparency = 1,
-        Text = name,
-        TextColor3 = COLORS.text,
-        Font = Enum.Font.Gotham,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, row)
-
-    local valueLabel = make("TextLabel", {
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, -12, 0, 6),
-        Size = UDim2.fromOffset(68, 20),
-        BackgroundTransparency = 1,
-        Text = tostring(math.round(Values[name])) .. (suffix or ""),
-        Visible = suffix ~= nil,
-        TextColor3 = COLORS.purple,
-        Font = Enum.Font.GothamBold,
-        TextSize = 12,
-        TextXAlignment = Enum.TextXAlignment.Right,
-    }, row)
-
-    local bar = make("TextButton", {
-        Position = UDim2.new(0, 12, 0, 38),
-        Size = UDim2.new(1, -24, 0, 8),
-        BackgroundColor3 = COLORS.panel2,
-        Text = "",
-        AutoButtonColor = false,
-    }, row)
-    round(bar, 4)
-
-    local fill = make("Frame", {
-        Size = UDim2.new(0, 0, 1, 0),
-        BackgroundColor3 = COLORS.purple,
-        BorderSizePixel = 0,
-    }, bar)
-    round(fill, 4)
-
-    local knob = make("Frame", {
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.fromOffset(16, 16),
-        BackgroundColor3 = COLORS.white,
-    }, bar)
-    round(knob, 8)
-
+local function draggable(handle, target)
     local dragging = false
+    local startMouse
+    local startPos
+    local moved = false
 
-    local function setValue(value, fireCallback)
-        value = math.clamp(math.round(tonumber(value) or minValue), minValue, maxValue)
-        Values[name] = value
-
-        local alpha = (value - minValue) / (maxValue - minValue)
-        fill.Size = UDim2.new(alpha, 0, 1, 0)
-        knob.Position = UDim2.new(alpha, 0, 0.5, 0)
-        valueLabel.Text = tostring(value) .. (suffix or "")
-
-        if fireCallback and callback then
-            safe(callback, value)
-        end
-    end
-
-    local function setFromInput(input)
-        local x = input.Position.X - bar.AbsolutePosition.X
-        local alpha = math.clamp(x / math.max(bar.AbsoluteSize.X, 1), 0, 1)
-        setValue(minValue + (maxValue - minValue) * alpha, true)
-    end
-
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            setFromInput(input)
+            moved = false
+            startMouse = input.Position
+            startPos = target.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
 
     UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            setFromInput(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - startMouse
+            if math.abs(delta.X) > 2 or math.abs(delta.Y) > 2 then moved = true end
+            target.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-
-    UIS.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    Controls[name] = {
-        set = function(v)
-            setValue(v, true)
-        end,
-    }
-
-    setValue(Values[name], false)
-    return row
 end
 
-local function addLabel(page, text, color)
-    return make("TextLabel", {
-        Size = UDim2.new(1, -5, 0, 30),
-        BackgroundTransparency = 1,
-        Text = text,
-        TextColor3 = color or COLORS.sub,
-        Font = Enum.Font.Gotham,
-        TextSize = 11,
-        TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, page)
+draggable(top, main)
+
+draggable(launcher, launcher)
+
+minimize.MouseButton1Click:Connect(function()
+    main.Visible = false
+end)
+
+launcher.MouseButton1Click:Connect(function()
+    main.Visible = not main.Visible
+end)
+
+close = minimize
+
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift then
+        main.Visible = not main.Visible
+    end
+end)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = string.lower(searchBox.Text or "")
+    local page = nil
+    for name, candidate in pairs(pages) do
+        if candidate.Visible then page = candidate break end
+    end
+    if not page then return end
+    for _, child in ipairs(page:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextButton") or child:IsA("TextLabel") then
+            local text = string.lower(tostring(child:GetAttribute("SearchText") or child.Name or ""))
+            if query == "" then
+                child.Visible = true
+            elseif child:GetAttribute("SearchText") then
+                child.Visible = string.find(text, query, 1, true) ~= nil
+            end
+        end
+    end
+end)
+
+--==================================================
+-- TABS
+--==================================================
+
+local tabNames = {
+    "Survivor",
+    "Killer",
+    "Auto Farm [BETA]",
+    "ESP",
+    "Aimbot",
+    "Animation",
+    "Settings",
+    "Config",
+    "Automation",
+    "Info",
+}
+
+for _, name in ipairs(tabNames) do
+    createTab(name)
+    createPage(name)
 end
 
 --==================================================
@@ -1677,20 +1557,19 @@ end
 
 local function addSurvivorColumns(page)
     local columns = make("Frame", {
-        Size = UDim2.new(1, -5, 0, 0),
+        Size = UDim2.new(1, -4, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
     }, page)
 
     local left = make("Frame", {
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Size = UDim2.new(1, 0, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
     }, columns)
 
     local right = make("Frame", {
-        Position = UDim2.new(0.5, 4, 0, 0),
-        Size = UDim2.new(0.5, -4, 0, 0),
+        Size = UDim2.new(1, 0, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
     }, columns)
@@ -1701,6 +1580,11 @@ local function addSurvivorColumns(page)
             SortOrder = Enum.SortOrder.LayoutOrder,
         }, parent)
     end
+
+    make("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, columns)
 
     return left, right
 end
@@ -2597,58 +2481,7 @@ do
     end)
 end
 
---==================================================
--- DRAGGABLE
---==================================================
-
-local function draggable(handle, target)
-    local dragging = false
-    local startMouse
-    local startPos
-
-    handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            dragging = true
-            startMouse = input.Position
-            startPos = target.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if not dragging then return end
-
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-
-            local delta = input.Position - startMouse
-
-            target.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
-draggable(top, main)
-
-launcher.MouseButton1Click:Connect(function()
-    main.Visible = not main.Visible
-end)
-
-close.MouseButton1Click:Connect(function()
-    main.Visible = false
-end)
+-- Draggable behavior is defined in the GUI block above.
 
 --==================================================
 -- AUTOMATION / COMBAT TRAINING (SERVER-SAFE)
