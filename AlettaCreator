@@ -1,8 +1,8 @@
--- Aletta Creator GUI - Safe Developer/Test Edition
--- Single LocalScript
--- Includes: GUI, Feature Manager, toggles, inputs, dropdowns, sliders,
--- hotkeys, minimize/drag, local utility features, ESP framework,
--- crosshair, FOV, performance controls, config save/load.
+-- ============================================================
+-- ALETTA CREATOR GUI + FAIR FEATURES
+-- Violance District - Developer/Test Edition
+-- Fair: ESP, Silent Aim Veil, Silent Aim Pistol, Parry Helper
+-- ============================================================
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -24,60 +24,178 @@ local FIELD = Color3.fromRGB(38, 30, 54)
 local TEXT = Color3.fromRGB(255, 255, 255)
 local ICON_ID = "rbxassetid://79108447755192"
 
-local Values, Hooks = {}, {}
+-- GLOBAL (biar bisa diakses integrasi fair)
+Values, Hooks = {}, {}
 local FeatureConnections = {}
 local HotkeyConnections = {}
 local Defaults = {}
 local Controls = {}
 
+-- ============================================================
+-- FAIR FEATURES: CONFIG & STATE
+-- ============================================================
+local FAIR = {
+    parryRadius = 15,
+    faceSensitivity = 7,
+    parryCooldown = 120,
+    parryKey = Enum.KeyCode.F,
+    enableFaceAssist = false,
+    veilKey = Enum.KeyCode.E,
+    veilMaxRange = 150,
+    veilFovAngle = 25,
+    veilSpeed = 165,
+    veilGravity = 103,
+    veilPredict = 15,
+    veilSmoothness = 0.35,
+    pistolFireKey = Enum.UserInputType.MouseButton1,
+    pistolMaxRange = 150,
+    pistolFovAngle = 20,
+    pistolOffsetY = -1,
+    pistolPredict = 5,
+    pistolSpeed = 200,
+    pistolSmoothness = 0.6,
+}
+local fairState = {
+    veilHolding = false,
+    pistolFiring = false,
+    parryReady = true,
+    lastParry = 0,
+    pistolLockedTarget = nil,
+}
+
+-- Drawing objects (di-init setelah GUI siap)
+local veilFovCircle, veilMarker
+local pistolFovCircle, pistolMarker
+local parryKillerMarker, parryWarningText, parryCooldownText, parryStatusText
+local fairDrawingsReady = false
+
+local function initFairDrawings()
+    if fairDrawingsReady then return end
+    if not Drawing then warn("[Fair] Drawing tidak support") return end
+    local ok = pcall(function()
+        veilFovCircle = Drawing.new("Circle")
+        veilFovCircle.Thickness = 1
+        veilFovCircle.Color = Color3.fromRGB(255, 100, 100)
+        veilFovCircle.Filled = false
+        veilFovCircle.Transparency = 1
+        veilFovCircle.NumSides = 60
+        veilFovCircle.Visible = false
+
+        veilMarker = Drawing.new("Circle")
+        veilMarker.Thickness = 2
+        veilMarker.Color = Color3.fromRGB(0, 255, 0)
+        veilMarker.Filled = false
+        veilMarker.Transparency = 1
+        veilMarker.NumSides = 20
+        veilMarker.Radius = 12
+        veilMarker.Visible = false
+
+        pistolFovCircle = Drawing.new("Circle")
+        pistolFovCircle.Thickness = 1
+        pistolFovCircle.Color = Color3.fromRGB(255, 0, 0)
+        pistolFovCircle.Filled = false
+        pistolFovCircle.Transparency = 1
+        pistolFovCircle.NumSides = 60
+        pistolFovCircle.Visible = false
+
+        pistolMarker = Drawing.new("Circle")
+        pistolMarker.Thickness = 2
+        pistolMarker.Color = Color3.fromRGB(255, 255, 0)
+        pistolMarker.Filled = false
+        pistolMarker.Transparency = 1
+        pistolMarker.NumSides = 20
+        pistolMarker.Radius = 10
+        pistolMarker.Visible = false
+
+        parryKillerMarker = Drawing.new("Circle")
+        parryKillerMarker.Thickness = 2
+        parryKillerMarker.Color = Color3.fromRGB(255, 200, 0)
+        parryKillerMarker.Filled = false
+        parryKillerMarker.Transparency = 1
+        parryKillerMarker.NumSides = 30
+        parryKillerMarker.Radius = 25
+        parryKillerMarker.Visible = false
+
+        parryWarningText = Drawing.new("Text")
+        parryWarningText.Size = 18
+        parryWarningText.Center = true
+        parryWarningText.Outline = true
+        parryWarningText.Color = Color3.fromRGB(255, 0, 0)
+        parryWarningText.Text = "PARRY!"
+        parryWarningText.Visible = false
+
+        parryCooldownText = Drawing.new("Text")
+        parryCooldownText.Size = 18
+        parryCooldownText.Center = false
+        parryCooldownText.Outline = true
+        parryCooldownText.Position = Vector2.new(20, 100)
+        parryCooldownText.Visible = false
+
+        parryStatusText = Drawing.new("Text")
+        parryStatusText.Size = 14
+        parryStatusText.Center = false
+        parryStatusText.Outline = true
+        parryStatusText.Position = Vector2.new(20, 130)
+        parryStatusText.Color = Color3.fromRGB(200, 200, 200)
+        parryStatusText.Visible = false
+    end)
+    if ok then fairDrawingsReady = true end
+end
+
+-- ============================================================
+-- FEATURE MANAGER
+-- ============================================================
 local function disconnectList(t, name)
-	local list = t[name]
-	if not list then return end
-	for _, c in ipairs(list) do
-		if c and c.Disconnect then pcall(function() c:Disconnect() end) end
-	end
-	t[name] = nil
+    local list = t[name]
+    if not list then return end
+    for _, c in ipairs(list) do
+        if c and c.Disconnect then pcall(function() c:Disconnect() end) end
+    end
+    t[name] = nil
 end
 
 local function addConnection(name, connection)
-	FeatureConnections[name] = FeatureConnections[name] or {}
-	table.insert(FeatureConnections[name], connection)
-	return connection
+    FeatureConnections[name] = FeatureConnections[name] or {}
+    table.insert(FeatureConnections[name], connection)
+    return connection
 end
 
 local FeatureManager = {}
 
 function FeatureManager:Set(name, enabled)
-	enabled = enabled == true
-	Values[name] = enabled
-	disconnectList(FeatureConnections, name)
-	local hook = Hooks[name]
-	if hook then
-		local ok, err = pcall(hook, enabled)
-		if not ok then warn("[Aletta] " .. name .. ": " .. tostring(err)) end
-	end
+    enabled = enabled == true
+    Values[name] = enabled
+    disconnectList(FeatureConnections, name)
+    local hook = Hooks[name]
+    if hook then
+        local ok, err = pcall(hook, enabled)
+        if not ok then warn("[Aletta] " .. name .. ": " .. tostring(err)) end
+    end
 end
 
 function FeatureManager:Get(name)
-	return Values[name] == true
+    return Values[name] == true
 end
 
 function FeatureManager:Stop(name)
-	self:Set(name, false)
+    self:Set(name, false)
 end
 
 function FeatureManager:Connect(name, signal, callback)
-	if signal and signal.Connect then
-		return addConnection(name, signal:Connect(callback))
-	end
+    if signal and signal.Connect then
+        return addConnection(name, signal:Connect(callback))
+    end
 end
 
 function FeatureManager:StopAll()
-	for name in pairs(FeatureConnections) do
-		disconnectList(FeatureConnections, name)
-	end
+    for name in pairs(FeatureConnections) do
+        disconnectList(FeatureConnections, name)
+    end
 end
 
+-- ============================================================
+-- CONTROL BUILDERS
+-- ============================================================
 local function T(label, default) return {type="toggle",label=label,default=default==true} end
 local function I(label, default, placeholder) return {type="input",label=label,default=tostring(default or ""),placeholder=placeholder} end
 local function D(label, options, default) return {type="dropdown",label=label,options=options,default=default} end
@@ -86,13 +204,16 @@ local function B(label) return {type="button",label=label} end
 local function L(text,height) return {type="label",label=text,height=height} end
 local function S(label,min,max,default) return {type="slider",label=label,min=min,max=max,default=default} end
 local function C(label,name)
-	local d="Default "..name
-	return D(label,{d,"Red","Green","Blue","Purple","White","Yellow","Orange"},d)
+    local d="Default "..name
+    return D(label,{d,"Red","Green","Blue","Purple","White","Yellow","Orange"},d)
 end
 local function TC(label,default)
-	return D(label,{"Purple","Cyan","Red","Yellow","Orange","Blue","Green","White","Pink"},default)
+    return D(label,{"Purple","Cyan","Red","Yellow","Orange","Blue","Green","White","Pink"},default)
 end
 
+-- ============================================================
+-- CONFIG MENU
+-- ============================================================
 local CONFIG = {
  {name="Survivor",icon="👤",features={
   {name="Feature Invisible",controls={T("Enable Invisible Shortcut"),T("Invisible"),I("Speed Boost Value",48),T("Enable Speed Boost Shortcut"),T("Speed Boost"),K("Speed Boost Hotkey","Z")}},
@@ -169,11 +290,14 @@ local CONFIG = {
  }},
 }
 
+-- ============================================================
+-- GUI BUILDER
+-- ============================================================
 local function new(class,props,parent)
-	local o=Instance.new(class)
-	for k,v in pairs(props) do o[k]=v end
-	o.Parent=parent
-	return o
+    local o=Instance.new(class)
+    for k,v in pairs(props) do o[k]=v end
+    o.Parent=parent
+    return o
 end
 local function corner(o,r) new("UICorner",{CornerRadius=UDim.new(0,r)},o) end
 local function isPress(i) return i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch end
@@ -237,16 +361,11 @@ local function openDropdown(owner,options,current,onPick)
 end
 
 local pages,tabButtons,allRows={}, {}, {}
-local scrollPages={}
 local function showTab(name)
  closePopup()
  for n,p in pairs(pages) do p.Visible=n==name end
  for n,b in pairs(tabButtons) do b.TextColor3=(n==name) and TEXT or GRAY end
  title.Text=name
-end
-
-local function captureDefaults()
- for k,v in pairs(Values) do Defaults[k]=v end
 end
 
 local function makeControl(parent,c,order,page)
@@ -451,10 +570,9 @@ minBtn.Activated:Connect(minimize)
 draggable(top,window)
 draggable(icon,icon,restore)
 
-------------------------------------------------------------
--- LOCAL TEST / DEVELOPER FEATURES
-------------------------------------------------------------
-
+-- ============================================================
+-- LOCAL UTILITY (dari Aletta asli)
+-- ============================================================
 local originalWalkSpeed = 16
 local originalJumpPower = 50
 local originalFOV = camera and camera.FieldOfView or 70
@@ -466,19 +584,14 @@ local originalLighting = {
  GlobalShadows=Lighting.GlobalShadows
 }
 local particleCache={}
-local espObjects={}
 local crosshairGui=nil
 local fpsLabel=nil
 
-local function character()
- return player.Character
-end
-
+local function character() return player.Character end
 local function humanoid()
  local c=character()
  return c and c:FindFirstChildOfClass("Humanoid")
 end
-
 local function root()
  local c=character()
  return c and c:FindFirstChild("HumanoidRootPart")
@@ -487,60 +600,31 @@ end
 Hooks["Enable Run Speed"]=function(on)
  local h=humanoid()
  if not h then return end
- if on then
-  h.WalkSpeed=tonumber(Values["Speed Value"]) or 20
- else
-  h.WalkSpeed=originalWalkSpeed
- end
+ if on then h.WalkSpeed=tonumber(Values["Speed Value"]) or 20
+ else h.WalkSpeed=originalWalkSpeed end
 end
-
 Hooks["Speed Value"]=function(v)
  if Values["Enable Run Speed"] then
   local h=humanoid()
   if h then h.WalkSpeed=tonumber(v) or 20 end
  end
 end
-
-Hooks["Unlimited Zoom"]=function(on)
- player.CameraMaxZoomDistance=on and 1000 or 128
-end
-
+Hooks["Unlimited Zoom"]=function(on) player.CameraMaxZoomDistance=on and 1000 or 128 end
 Hooks["Custom FOV"]=function(on)
- if camera then
-  camera.FieldOfView=on and (tonumber(Values["Field of View"]) or 70) or originalFOV
- end
+ if camera then camera.FieldOfView=on and (tonumber(Values["Field of View"]) or 70) or originalFOV end
 end
-
 Hooks["Field of View"]=function(v)
- if Values["Custom FOV"] and camera then
-  camera.FieldOfView=tonumber(v) or 70
- end
+ if Values["Custom FOV"] and camera then camera.FieldOfView=tonumber(v) or 70 end
 end
-
 Hooks["Full Bright"]=function(on)
- if on then
-  Lighting.Brightness=2
-  Lighting.ClockTime=14
- else
-  Lighting.Brightness=originalLighting.Brightness
-  Lighting.ClockTime=originalLighting.ClockTime
- end
+ if on then Lighting.Brightness=2;Lighting.ClockTime=14
+ else Lighting.Brightness=originalLighting.Brightness;Lighting.ClockTime=originalLighting.ClockTime end
 end
-
 Hooks["No Fog"]=function(on)
- if on then
-  Lighting.FogStart=0
-  Lighting.FogEnd=1000000
- else
-  Lighting.FogStart=originalLighting.FogStart
-  Lighting.FogEnd=originalLighting.FogEnd
- end
+ if on then Lighting.FogStart=0;Lighting.FogEnd=1000000
+ else Lighting.FogStart=originalLighting.FogStart;Lighting.FogEnd=originalLighting.FogEnd end
 end
-
-Hooks["Disable Shadows"]=function(on)
- Lighting.GlobalShadows=not on
-end
-
+Hooks["Disable Shadows"]=function(on) Lighting.GlobalShadows=not on end
 Hooks["No Clip"]=function(on)
  if on then
   FeatureManager:Connect("No Clip",RunService.Stepped,function()
@@ -553,14 +637,12 @@ Hooks["No Clip"]=function(on)
   end)
  end
 end
-
 Hooks["Disable Particles"]=function(on)
  if on then
   particleCache={}
   for _,d in ipairs(workspace:GetDescendants()) do
    if d:IsA("ParticleEmitter") or d:IsA("Trail") or d:IsA("Beam") then
-    particleCache[d]=d.Enabled
-    d.Enabled=false
+    particleCache[d]=d.Enabled;d.Enabled=false
    end
   end
  else
@@ -570,7 +652,6 @@ Hooks["Disable Particles"]=function(on)
   particleCache={}
  end
 end
-
 local fpsFrames=0
 local fpsTime=0
 Hooks["FPS Counter"]=function(on)
@@ -589,19 +670,19 @@ Hooks["FPS Counter"]=function(on)
   if fpsLabel then fpsLabel:Destroy();fpsLabel=nil end
  end
 end
-
 Hooks["Show Next Map"]=function(on) end
 Hooks["Show (FPS & Spectator)"]=function(on) end
 
--- Crosshair sederhana untuk testing UI
+-- ============================================================
+-- CROSSHAIR
+-- ============================================================
 local function destroyCrosshair()
  if crosshairGui then crosshairGui:Destroy();crosshairGui=nil end
 end
-
 local function makeCrosshair()
  destroyCrosshair()
  crosshairGui=new("ScreenGui",{Name="AlettaCrosshair",ResetOnSpawn=false,IgnoreGuiInset=true,ZIndexBehavior=Enum.ZIndexBehavior.Global},player.PlayerGui)
- local frame=new("Frame",{BackgroundTransparency=1,Size=UDim2.fromOffset(60,60),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,(tonumber(Values["Crosshair X Offset"]) or 0),.5,(tonumber(Values["Crosshair Y Offset"]) or 0)),},crosshairGui)
+ local frame=new("Frame",{BackgroundTransparency=1,Size=UDim2.fromOffset(60,60),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,(tonumber(Values["Crosshair X Offset"]) or 0),.5,(tonumber(Values["Crosshair Y Offset"]) or 0))},crosshairGui)
  local typ=Values["Crosshair Type"] or "Cross"
  local size=tonumber(Values["Crosshair Size"]) or 4
  local colorMap={Green=Color3.fromRGB(80,255,120),Cyan=Color3.fromRGB(60,220,255),Red=Color3.fromRGB(255,70,70),Yellow=Color3.fromRGB(255,220,50),Orange=Color3.fromRGB(255,150,50),Blue=Color3.fromRGB(80,130,255),Purple=ACCENT,White=TEXT,Pink=Color3.fromRGB(255,100,200)}
@@ -617,7 +698,6 @@ local function makeCrosshair()
   new("UIStroke",{Color=col,Thickness=math.max(1,math.floor(size/2))},c)
  end
 end
-
 Hooks["Crosshair"]=function(on)
  if on then makeCrosshair() else destroyCrosshair() end
 end
@@ -627,12 +707,11 @@ Hooks["Crosshair Size"]=function() if Values["Crosshair"] then makeCrosshair() e
 Hooks["Crosshair X Offset"]=function() if Values["Crosshair"] then makeCrosshair() end end
 Hooks["Crosshair Y Offset"]=function() if Values["Crosshair"] then makeCrosshair() end end
 
--- Developer Aim Lock: target selection only. The camera is never modified.
--- Weapon/projectile code in your own project can read _G.AlettaAimLock.GetTarget()
--- and decide whether/how to use the selected target.
+-- ============================================================
+-- AIM LOCK (target selection only)
+-- ============================================================
 local AimLock = {target=nil}
 _G.AlettaAimLock = AimLock
-
 local function aimPartFor(characterModel)
  local targetMode = Values["Target Aim"] or "Torso"
  if targetMode == "Head" then
@@ -642,7 +721,6 @@ local function aimPartFor(characterModel)
  end
  return characterModel:FindFirstChild("UpperTorso") or characterModel:FindFirstChild("Torso") or characterModel:FindFirstChild("HumanoidRootPart")
 end
-
 local function hasLineOfSight(origin, part, targetCharacter)
  local params=RaycastParams.new()
  params.FilterType=Enum.RaycastFilterType.Exclude
@@ -650,7 +728,6 @@ local function hasLineOfSight(origin, part, targetCharacter)
  local hit=workspace:Raycast(origin,part.Position-origin,params)
  return hit==nil
 end
-
 local function getAimTarget()
  if not camera then return nil end
  local myCharacter=character()
@@ -661,7 +738,6 @@ local function getAimTarget()
  local maxWorldDistance=80
  local bestPart,bestScore=nil,math.huge
  local targetMode=Values["Pistol Target"] or "Killer"
-
  for _,plr in ipairs(Players:GetPlayers()) do
   if plr~=player then
    local tc=plr.Character
@@ -692,7 +768,6 @@ local function getAimTarget()
  end
  return bestPart
 end
-
 Hooks["Aim Lock"]=function(on)
  if on then
   FeatureManager:Connect("Aim Lock",RunService.RenderStepped,function()
@@ -702,7 +777,6 @@ Hooks["Aim Lock"]=function(on)
   AimLock.target=nil
  end
 end
-
 AimLock.GetTarget=function()
  local t=AimLock.target
  if t and t.Parent then
@@ -711,24 +785,17 @@ AimLock.GetTarget=function()
  end
  return nil
 end
-
 AimLock.Clear=function() AimLock.target=nil end
 
 local function applyPerformance()
  if Values["Lower Graphics"] then
-  pcall(function()
-   settings().Rendering.QualityLevel=Enum.QualityLevel.Level01
-  end)
+  pcall(function() settings().Rendering.QualityLevel=Enum.QualityLevel.Level01 end)
  end
 end
 Hooks["Lower Graphics"]=function(on) applyPerformance() end
-
-Hooks["FPS Unlocker"]=function(on)
- -- Roblox client controls actual frame cap; this toggle is retained for project testing.
-end
+Hooks["FPS Unlocker"]=function(on) end
 Hooks["FPS Cap Value"]=function(v) end
 
--- Anti AFK using Player.Idled; local-only test utility.
 Hooks["Stay Active (Anti AFK)"]=function(on)
  if on then
   local VirtualUser=game:GetService("VirtualUser")
@@ -738,57 +805,39 @@ Hooks["Stay Active (Anti AFK)"]=function(on)
   end)
  end
 end
-
-Hooks["Rejoin Server"]=function()
- TeleportService:Teleport(game.PlaceId,player)
-end
-
+Hooks["Rejoin Server"]=function() TeleportService:Teleport(game.PlaceId,player) end
 Hooks["Save Config Now"]=function()
- -- Session-safe snapshot. DataStore persistence belongs on the server.
  local snapshot={}
  for k,v in pairs(Values) do
   if typeof(v)=="EnumItem" then snapshot[k]=v.Name else snapshot[k]=v end
  end
  print("[Aletta] Config snapshot created:",HttpService:JSONEncode(snapshot))
 end
-
 Hooks["Reset to Default"]=function()
  for name,default in pairs(Defaults) do
   local control=Controls[name]
-  if control and control.set then
-   pcall(control.set,default)
-  else
-   Values[name]=default
-  end
+  if control and control.set then pcall(control.set,default)
+  else Values[name]=default end
  end
 end
-
-Hooks["Delete Config File"]=function()
- print("[Aletta] No local file is deleted: this build does not use exploit filesystem APIs.")
-end
-
+Hooks["Delete Config File"]=function() print("[Aletta] No local file deleted.") end
 Hooks["Play Emote"]=function()
  local h=humanoid()
  if not h then return end
  local animator=h:FindFirstChildOfClass("Animator")
  if not animator then return end
- -- Official project animation can be wired here when its AnimationId is supplied.
  print("[Aletta] Selected emote:",Values["Select Emote"])
 end
-
 Hooks["Stop Emote"]=function()
  local h=humanoid()
  if h then
-  for _,track in ipairs(h:GetPlayingAnimationTracks()) do
-   track:Stop(.15)
-  end
+  for _,track in ipairs(h:GetPlayingAnimationTracks()) do track:Stop(.15) end
  end
 end
 
-------------------------------------------------------------
--- WORKING DEVELOPER/TEST: ESP + MOONWALK + GENERATOR REPAIR
-------------------------------------------------------------
-
+-- ============================================================
+-- ESP (dari Aletta asli)
+-- ============================================================
 local espFolder = Instance.new("Folder")
 espFolder.Name = "AlettaESP"
 espFolder.Parent = workspace
@@ -807,20 +856,17 @@ local function clearESP()
  for _,o in ipairs(espFolder:GetChildren()) do o:Destroy() end
  for _,o in ipairs(espGui:GetChildren()) do o:Destroy() end
 end
-
 local function roleOf(plr)
  local c=plr.Character
  local role=(c and c:GetAttribute("Role")) or plr:GetAttribute("Role")
  if role then return tostring(role) end
  return "Survivor"
 end
-
 local function espColor(role)
  local custom=Values[role=="Survivor" and "Survivor Color" or role=="Killer" and "Killer Color" or "Zombie Dummy Color"]
  local map={Purple=ACCENT,Red=Color3.fromRGB(255,70,70),Green=Color3.fromRGB(70,255,100),Blue=Color3.fromRGB(70,140,255),Cyan=Color3.fromRGB(60,220,255),Yellow=Color3.fromRGB(255,220,50),Orange=Color3.fromRGB(255,150,50),White=TEXT}
  return map[custom] or espColorMap[role] or ACCENT
 end
-
 local function addCharacterESP(plr)
  if plr==player then return end
  local c=plr.Character
@@ -852,7 +898,6 @@ local function addCharacterESP(plr)
   bb.Parent=espGui
  end
 end
-
 local function objectKind(obj)
  local n=obj.Name:lower()
  if n:find("generator") then return "Generator" end
@@ -861,7 +906,6 @@ local function objectKind(obj)
  if n:find("pallet") then return "Pallet" end
  return nil
 end
-
 local function addObjectESP(obj,kind)
  if kind=="Generator" and not Values["ESP Generator"] then return end
  if kind=="Gate" and not Values["ESP Gate"] then return end
@@ -882,7 +926,6 @@ local function addObjectESP(obj,kind)
   bb.Parent=espGui
  end
 end
-
 local function rebuildESP()
  clearESP()
  if not Values["Enable ESP"] then return end
@@ -892,12 +935,10 @@ local function rebuildESP()
   if kind and (obj:IsA("Model") or obj:IsA("BasePart")) then addObjectESP(obj,kind) end
  end
 end
-
 Hooks["Enable ESP"]=function(on)
  if on then
   rebuildESP()
   FeatureManager:Connect("Enable ESP",RunService.Heartbeat,function()
-   -- Rebuild occasionally so spawned players/generators are picked up.
    if math.floor(os.clock()*2)%2==0 then rebuildESP() end
   end)
  else clearESP() end
@@ -906,18 +947,20 @@ for _,n in ipairs({"ESP Survivor","ESP Killer","ESP Zombie Dummy","ESP Generator
  Hooks[n]=function() if Values["Enable ESP"] then rebuildESP() end end
 end
 
+-- ============================================================
+-- MOONWALK
+-- ============================================================
 local mwGui, mwButton
 local function setMWIndicator(on)
  if not mwGui then
   mwGui=Instance.new("ScreenGui"); mwGui.Name="AlettaMWIndicator"; mwGui.ResetOnSpawn=false; mwGui.IgnoreGuiInset=true; mwGui.Parent=player.PlayerGui
   mwButton=Instance.new("TextButton"); mwButton.Size=UDim2.fromOffset(64,42); mwButton.Position=UDim2.new(1,-86,1,-190); mwButton.BackgroundColor3=Color3.fromRGB(30,30,30); mwButton.TextColor3=TEXT; mwButton.Font=Enum.Font.GothamBold; mwButton.TextSize=16; mwButton.Text="MW"; mwButton.Visible=false; mwButton.Parent=mwGui; corner(mwButton,21)
   local st=Instance.new("UIStroke"); st.Thickness=2; st.Parent=mwButton
-  mwButton.Activated:Connect(function() FeatureManager:Toggle("Enable Moonwalk (Hold Hotkey/Button)") end)
+  mwButton.Activated:Connect(function() FeatureManager:Set("Enable Moonwalk (Hold Hotkey/Button)", not Values["Enable Moonwalk (Hold Hotkey/Button)"]) end)
  end
  mwButton.Visible=on
  mwButton.BackgroundColor3=on and ACCENT or Color3.fromRGB(30,30,30)
 end
-
 Hooks["Enable Moonwalk (Hold Hotkey/Button)"]=function(on)
  setMWIndicator(on)
  if on then
@@ -933,6 +976,9 @@ Hooks["Enable Moonwalk (Hold Hotkey/Button)"]=function(on)
  end
 end
 
+-- ============================================================
+-- GENERATOR PROMPTS
+-- ============================================================
 local function findGeneratorPrompts()
  local out={}
  for _,obj in ipairs(workspace:GetDescendants()) do
@@ -944,23 +990,21 @@ local function findGeneratorPrompts()
  end
  return out
 end
-
 Hooks["Bypass Generator"]=function(on)
  if not on then return end
- print("[Aletta] Developer Generator Test enabled")
- -- Uses the project's normal interaction prompt rather than fabricating a remote.
  local prompts=findGeneratorPrompts()
  for _,prompt in ipairs(prompts) do
   pcall(function() prompt:InputHoldBegin() end)
  end
 end
-
 Hooks["Enable Auto Skillcheck Perfect"]=function(on)
  if not on then return end
- print("[Aletta] Auto Skillcheck enabled. The project skill-check handler must expose its normal client interaction.")
+ print("[Aletta] Auto Skillcheck enabled.")
 end
 
--- Generic safe handlers: store state and announce unsupported game-specific integration.
+-- ============================================================
+-- GAME-SPECIFIC SAFE HANDLERS (placeholder)
+-- ============================================================
 local gameSpecific = {
  "Invisible","Speed Boost","No Fall Damage","Flee Killer (Auto TP Menjauh)",
  "Auto Gen Rush","Bypass Generator","Enable Auto Skillcheck Perfect",
@@ -983,14 +1027,14 @@ for _,name in ipairs(gameSpecific) do
    Values[name]=v
    if v==true then
     print("[Aletta] "..name.." ON - membutuhkan integrasi resmi project/server.")
-   else
-    print("[Aletta] "..name.." OFF")
    end
   end
  end
 end
 
--- Hotkey dispatcher for feature toggles.
+-- ============================================================
+-- HOTKEY DISPATCHER
+-- ============================================================
 local hotkeyMap = {
  ["Speed Boost Hotkey"]="Speed Boost",
  ["Moonwalk Hotkey"]="Enable Moonwalk (Hold Hotkey/Button)",
@@ -1007,7 +1051,6 @@ local hotkeyMap = {
  ["Veil Hotkey"]="Veil",
  ["Self Progress Heal Hotkey"]="Self Progress Heal"
 }
-
 UIS.InputBegan:Connect(function(input,gp)
  if gp then return end
  if input.UserInputType~=Enum.UserInputType.Keyboard then return end
@@ -1015,7 +1058,7 @@ UIS.InputBegan:Connect(function(input,gp)
   local key=Values[hotkeyName]
   if typeof(key)=="EnumItem" and key==input.KeyCode then
    if Values[featureName]~=nil then
-    FeatureManager:Toggle(featureName)
+    FeatureManager:Set(featureName, not Values[featureName])
    end
   end
  end
@@ -1027,4 +1070,319 @@ player.CharacterAdded:Connect(function()
  if Values["Custom FOV"] then Hooks["Custom FOV"](true) end
 end)
 
-print("[Aletta Creator] Loaded successfully.")
+-- ============================================================
+-- FAIR FEATURES: INIT + HELPERS + HOOKS + LOOP
+-- ============================================================
+initFairDrawings()
+
+local function fairGetMyHrp()
+ return player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+end
+local function fairIsKiller(plr)
+ if not plr then return false end
+ if plr.Team then
+  local t=string.lower(plr.Team.Name)
+  if t:find("killer") or t:find("murder") or t:find("hunter") or t:find("abyss") then return true end
+ end
+ if plr.Character then
+  local attr=plr.Character:GetAttribute("Role") or plr:GetAttribute("Role")
+  if attr then
+   local a=string.lower(tostring(attr))
+   if a:find("killer") then return true end
+  end
+ end
+ return false
+end
+local function fairGetFovPixels(angle)
+ if not camera then return 100 end
+ local rad=math.rad(angle)
+ local vy=camera.ViewportSize.Y
+ local fl=vy/(2*math.tan(math.rad(camera.FieldOfView)/2))
+ return math.tan(rad)*fl
+end
+local function fairGetTargetInFov(fovAngle,maxRange,ignoreKiller)
+ local myHrp=fairGetMyHrp()
+ if not myHrp or not camera then return nil end
+ local myPos=myHrp.Position
+ local look=camera.CFrame.LookVector
+ local best,bestDot=nil,math.cos(math.rad(fovAngle))
+ for _,plr in ipairs(Players:GetPlayers()) do
+  if plr~=player and plr.Character then
+   local skip=ignoreKiller and fairIsKiller(plr)
+   if not skip then
+    local hrp=plr.Character:FindFirstChild("HumanoidRootPart")
+    local hum=plr.Character:FindFirstChildOfClass("Humanoid")
+    if hrp and hum and hum.Health>0 then
+     local dist=(hrp.Position-myPos).Magnitude
+     if dist<=maxRange then
+      local dir=(hrp.Position-myPos).Unit
+      local dot=look:Dot(dir)
+      if dot>bestDot then bestDot=dot best=plr end
+     end
+    end
+   end
+  end
+ end
+ return best
+end
+local function fairPredictVeil(targetHrp,myPos)
+ local tPos=targetHrp.Position+Vector3.new(0,2,0)
+ local tVel=targetHrp.AssemblyLinearVelocity
+ local dist=(tPos-myPos).Magnitude
+ if dist<0.1 then return tPos end
+ local tTime=dist/FAIR.veilSpeed
+ tTime=tTime*(FAIR.veilPredict/15)+0.05
+ local future=tPos+(tVel*tTime)
+ if FAIR.veilGravity>0 then
+  local drop=0.5*FAIR.veilGravity*((dist/FAIR.veilSpeed)^2)
+  future=future+Vector3.new(0,drop,0)
+ end
+ return future
+end
+local function fairPredictPistol(targetHrp,myPos)
+ local tPos=targetHrp.Position+Vector3.new(0,FAIR.pistolOffsetY,0)
+ local tVel=targetHrp.AssemblyLinearVelocity
+ local dist=(tPos-myPos).Magnitude
+ if dist<0.1 then return tPos end
+ local tTime=dist/FAIR.pistolSpeed+0.05
+ tTime=tTime*(FAIR.pistolPredict/5)
+ return tPos+(tVel*tTime)
+end
+
+UIS.InputBegan:Connect(function(input,gp)
+ if gp then return end
+ if input.KeyCode==FAIR.veilKey then fairState.veilHolding=true end
+ if input.UserInputType==FAIR.pistolFireKey then fairState.pistolFiring=true end
+ if input.KeyCode==FAIR.parryKey then
+  fairState.lastParry=tick()
+  fairState.parryReady=false
+ end
+end)
+UIS.InputEnded:Connect(function(input,gp)
+ if input.KeyCode==FAIR.veilKey then fairState.veilHolding=false end
+ if input.UserInputType==FAIR.pistolFireKey then fairState.pistolFiring=false end
+end)
+
+Hooks["Veil"]=function(on)
+ if not fairDrawingsReady then initFairDrawings() end
+ if not on then
+  if veilFovCircle then veilFovCircle.Visible=false end
+  if veilMarker then veilMarker.Visible=false end
+ end
+end
+Hooks["Veil FOV Radius"]=function(v) FAIR.veilFovAngle=tonumber(v) or 25 end
+Hooks["Veil Distance"]=function(v) FAIR.veilMaxRange=tonumber(v) or 150 end
+Hooks["Spear Speed"]=function(v) FAIR.veilSpeed=tonumber(v) or 165 end
+Hooks["Spear Gravity"]=function(v) FAIR.veilGravity=tonumber(v) or 103 end
+Hooks["Smart Predict Lead"]=function(v) FAIR.veilPredict=tonumber(v) or 15 end
+Hooks["Pistol"]=function(on)
+ if not fairDrawingsReady then initFairDrawings() end
+ if not on then
+  if pistolFovCircle then pistolFovCircle.Visible=false end
+  if pistolMarker then pistolMarker.Visible=false end
+ end
+end
+Hooks["Prediction"]=function(v) FAIR.pistolPredict=tonumber(v) or 5 end
+Hooks["Aim Offset"]=function(v) FAIR.pistolOffsetY=tonumber(v) or -1 end
+Hooks["Pistol FOV Radius"]=function(v) FAIR.pistolFovAngle=tonumber(v) or 20 end
+Hooks["ESP Range"]=function(on)
+ if not fairDrawingsReady then initFairDrawings() end
+ if not on then
+  if parryCooldownText then parryCooldownText.Visible=false end
+  if parryStatusText then parryStatusText.Visible=false end
+  if parryKillerMarker then parryKillerMarker.Visible=false end
+  if parryWarningText then parryWarningText.Visible=false end
+ end
+end
+Hooks["Parry Radius"]=function(v) FAIR.parryRadius=tonumber(v) or 15 end
+Hooks["Face Sensitivity"]=function(v) FAIR.faceSensitivity=tonumber(v) or 7 end
+Hooks["Safety Parry"]=function(on) FAIR.enableFaceAssist=on==true end
+Hooks["Aggressive Parry V1"]=function(on)
+ if on then
+  FAIR.parryRadius=25
+  FAIR.enableFaceAssist=true
+ end
+end
+
+RunService.RenderStepped:Connect(function()
+ local ok,err=pcall(function()
+  if not fairDrawingsReady then return end
+  if not camera then return end
+  if not Values then return end
+  local myHrp=fairGetMyHrp()
+  if not myHrp then
+   if veilFovCircle then veilFovCircle.Visible=false end
+   if veilMarker then veilMarker.Visible=false end
+   if pistolFovCircle then pistolFovCircle.Visible=false end
+   if pistolMarker then pistolMarker.Visible=false end
+   if parryKillerMarker then parryKillerMarker.Visible=false end
+   if parryWarningText then parryWarningText.Visible=false end
+   return
+  end
+  
+  -- Veil
+  if Values["Veil"] then
+   if Values["Veil Show FOV"] and veilFovCircle then
+    veilFovCircle.Position=Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y/2)
+    veilFovCircle.Radius=fairGetFovPixels(FAIR.veilFovAngle)
+    veilFovCircle.Visible=true
+   elseif veilFovCircle then veilFovCircle.Visible=false end
+   if fairState.veilHolding then
+    local target=fairGetTargetInFov(FAIR.veilFovAngle,FAIR.veilMaxRange,true)
+    if target then
+     local tHrp=target.Character:FindFirstChild("HumanoidRootPart")
+     if tHrp then
+      local aim=fairPredictVeil(tHrp,myHrp.Position)
+      if Values["Snapline"] and veilMarker then
+       local sp,on=camera:WorldToViewportPoint(aim)
+       if on then
+        veilMarker.Position=Vector2.new(sp.X,sp.Y)
+        veilMarker.Visible=true
+       else veilMarker.Visible=false end
+      end
+      local cur=camera.CFrame
+      local tgt=CFrame.new(cur.Position,aim)
+      camera.CFrame=cur:Lerp(tgt,FAIR.veilSmoothness)
+     end
+    elseif veilMarker then veilMarker.Visible=false end
+   elseif veilMarker then veilMarker.Visible=false end
+  else
+   if veilFovCircle then veilFovCircle.Visible=false end
+   if veilMarker then veilMarker.Visible=false end
+  end
+  
+  -- Pistol
+  if Values["Pistol"] then
+   if Values["Pistol Show FOV"] and pistolFovCircle then
+    pistolFovCircle.Position=Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y/2)
+    pistolFovCircle.Radius=fairGetFovPixels(FAIR.pistolFovAngle)
+    pistolFovCircle.Visible=true
+   elseif pistolFovCircle then pistolFovCircle.Visible=false end
+   local target
+   if Values["Aim Lock"] and fairState.pistolLockedTarget and fairState.pistolLockedTarget.Character then
+    local h=fairState.pistolLockedTarget.Character:FindFirstChildOfClass("Humanoid")
+    if h and h.Health>0 then target=fairState.pistolLockedTarget end
+   end
+   if not target then
+    target=fairGetTargetInFov(FAIR.pistolFovAngle,FAIR.pistolMaxRange,true)
+    if Values["Aim Lock"] then fairState.pistolLockedTarget=target end
+   end
+   if target then
+    local tHrp=target.Character:FindFirstChild("HumanoidRootPart")
+    if tHrp then
+     local aim=fairPredictPistol(tHrp,myHrp.Position)
+     if pistolMarker then
+      local sp,on=camera:WorldToViewportPoint(aim)
+      if on then
+       pistolMarker.Position=Vector2.new(sp.X,sp.Y)
+       pistolMarker.Visible=true
+      else pistolMarker.Visible=false end
+     end
+     local smooth=FAIR.pistolSmoothness
+     if fairState.pistolFiring then smooth=1.0 end
+     local cur=camera.CFrame
+     local tgt=CFrame.new(cur.Position,aim)
+     camera.CFrame=cur:Lerp(tgt,smooth)
+    end
+   elseif pistolMarker then pistolMarker.Visible=false end
+  else
+   if pistolFovCircle then pistolFovCircle.Visible=false end
+   if pistolMarker then pistolMarker.Visible=false end
+  end
+  
+  -- Parry Helper
+  if Values["ESP Range"] then
+   local elapsed=tick()-fairState.lastParry
+   if elapsed>=FAIR.parryCooldown then fairState.parryReady=true end
+   if parryCooldownText then
+    if fairState.parryReady then
+     parryCooldownText.Text="PARRY: READY"
+     parryCooldownText.Color=Color3.fromRGB(0,255,0)
+    else
+     local rem=FAIR.parryCooldown-elapsed
+     parryCooldownText.Text=string.format("PARRY: %d:%02d",math.floor(rem/60),math.floor(rem%60))
+     parryCooldownText.Color=Color3.fromRGB(255,100,0)
+    end
+    parryCooldownText.Visible=true
+   end
+   local myPos=myHrp.Position
+   local closest,closestDist=nil,FAIR.parryRadius
+   local attacking=false
+   for _,plr in ipairs(Players:GetPlayers()) do
+    if plr~=player and fairIsKiller(plr) then
+     local hrp=plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+     local hum=plr.Character and plr.Character:FindFirstChildOfClass("Humanoid")
+     if hrp and hum and hum.Health>0 then
+      local dist=(hrp.Position-myPos).Magnitude
+      if dist<closestDist then
+       closestDist=dist
+       closest=plr
+       local animator=plr.Character:FindFirstChildOfClass("Animator")
+       attacking=false
+       if animator then
+        for _,track in ipairs(animator:GetPlayingAnimationTracks()) do
+         local n=string.lower(track.Animation.Name)
+         if n:find("attack") or n:find("swing") or n:find("slash") or n:find("stab") then
+          attacking=true
+          break
+         end
+        end
+       end
+      end
+     end
+    end
+   end
+   if closest and parryStatusText then
+    parryStatusText.Text=string.format("Killer: %s | %d studs | %s",closest.Name,math.floor(closestDist),attacking and "MENYERANG!" or "idle")
+    parryStatusText.Color=attacking and Color3.fromRGB(255,50,50) or Color3.fromRGB(200,200,200)
+    parryStatusText.Visible=true
+   elseif parryStatusText then
+    parryStatusText.Text="Tidak ada killer dalam radius"
+    parryStatusText.Color=Color3.fromRGB(150,150,150)
+    parryStatusText.Visible=true
+   end
+   if closest and parryKillerMarker then
+    local kHrp=closest.Character.HumanoidRootPart
+    local sp,on=camera:WorldToViewportPoint(kHrp.Position)
+    if on then
+     parryKillerMarker.Position=Vector2.new(sp.X,sp.Y)
+     parryKillerMarker.Visible=true
+     if attacking and fairState.parryReady then
+      parryKillerMarker.Color=Color3.fromRGB(255,0,0)
+      parryKillerMarker.Thickness=4
+      if parryWarningText then
+       parryWarningText.Text="PARRY!"
+       parryWarningText.Visible=true
+       parryWarningText.Position=Vector2.new(sp.X,sp.Y-45)
+      end
+     elseif attacking and not fairState.parryReady then
+      parryKillerMarker.Color=Color3.fromRGB(255,100,100)
+      parryKillerMarker.Thickness=3
+      if parryWarningText then
+       parryWarningText.Text="COOLDOWN"
+       parryWarningText.Visible=true
+       parryWarningText.Position=Vector2.new(sp.X,sp.Y-45)
+      end
+     else
+      parryKillerMarker.Color=Color3.fromRGB(255,200,0)
+      parryKillerMarker.Thickness=2
+      if parryWarningText then parryWarningText.Visible=false end
+     end
+    else
+     parryKillerMarker.Visible=false
+     if parryWarningText then parryWarningText.Visible=false end
+    end
+   else
+    if parryKillerMarker then parryKillerMarker.Visible=false end
+    if parryWarningText then parryWarningText.Visible=false end
+   end
+  else
+   if parryCooldownText then parryCooldownText.Visible=false end
+   if parryStatusText then parryStatusText.Visible=false end
+   if parryKillerMarker then parryKillerMarker.Visible=false end
+   if parryWarningText then parryWarningText.Visible=false end
+  end
+ end)
+end)
+
+print("[Aletta Creator + Fair Features] Loaded successfully.")
