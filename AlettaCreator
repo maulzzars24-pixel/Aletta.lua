@@ -1,7 +1,8 @@
 -- ============================================================
--- ALETTA CREATOR GUI + FAIR FEATURES
--- Violance District - Developer/Test Edition
--- Fair: ESP, Silent Aim Veil, Silent Aim Pistol, Parry Helper
+-- ALETTA CREATOR GUI + FAIR FEATURES v3
+-- ESP: Survivor, Killer, Generator (Name) + Pallet, Window, Hook, Gate (Highlight)
+-- Gate: hanya muncul saat in-game (bukan lobby)
+-- Fair: Silent Aim Veil, Silent Aim Pistol, Parry Helper
 -- ============================================================
 
 local Players = game:GetService("Players")
@@ -24,7 +25,6 @@ local FIELD = Color3.fromRGB(38, 30, 54)
 local TEXT = Color3.fromRGB(255, 255, 255)
 local ICON_ID = "rbxassetid://79108447755192"
 
--- GLOBAL (biar bisa diakses integrasi fair)
 Values, Hooks = {}, {}
 local FeatureConnections = {}
 local HotkeyConnections = {}
@@ -63,7 +63,6 @@ local fairState = {
     pistolLockedTarget = nil,
 }
 
--- Drawing objects (di-init setelah GUI siap)
 local veilFovCircle, veilMarker
 local pistolFovCircle, pistolMarker
 local parryKillerMarker, parryWarningText, parryCooldownText, parryStatusText
@@ -153,15 +152,12 @@ local function disconnectList(t, name)
     end
     t[name] = nil
 end
-
 local function addConnection(name, connection)
     FeatureConnections[name] = FeatureConnections[name] or {}
     table.insert(FeatureConnections[name], connection)
     return connection
 end
-
 local FeatureManager = {}
-
 function FeatureManager:Set(name, enabled)
     enabled = enabled == true
     Values[name] = enabled
@@ -172,21 +168,13 @@ function FeatureManager:Set(name, enabled)
         if not ok then warn("[Aletta] " .. name .. ": " .. tostring(err)) end
     end
 end
-
-function FeatureManager:Get(name)
-    return Values[name] == true
-end
-
-function FeatureManager:Stop(name)
-    self:Set(name, false)
-end
-
+function FeatureManager:Get(name) return Values[name] == true end
+function FeatureManager:Stop(name) self:Set(name, false) end
 function FeatureManager:Connect(name, signal, callback)
     if signal and signal.Connect then
         return addConnection(name, signal:Connect(callback))
     end
 end
-
 function FeatureManager:StopAll()
     for name in pairs(FeatureConnections) do
         disconnectList(FeatureConnections, name)
@@ -254,9 +242,9 @@ local CONFIG = {
  {name="ESP",icon="👁",features={
   {name="Enable ESP",controls={T("Enable ESP")}},
   {name="ESP Role",controls={T("ESP Survivor",true),T("ESP Killer",true),T("ESP Zombie Dummy",true)}},
-  {name="ESP Object",controls={T("ESP Generator",true),T("ESP Gate"),T("ESP Hook"),T("ESP Pallet")}},
+  {name="ESP Object",controls={T("ESP Generator",true),T("ESP Gate"),T("ESP Hook"),T("ESP Pallet"),T("ESP Window")}},
   {name="ESP Settings",controls={T("Show Name"),T("Show Distance"),T("Show Health")}},
-  {name="Custom ESP Colors",controls={C("Survivor Color","Survivor"),C("Killer Color","Killer"),C("Zombie Dummy Color","Zombie"),C("Generator Color","Generator"),C("Gate Color","Gate"),C("Hook Color","Hook"),C("Pallet Color","Pallet")}},
+  {name="Custom ESP Colors",controls={C("Survivor Color","Survivor"),C("Killer Color","Killer"),C("Zombie Dummy Color","Zombie"),C("Generator Color","Generator"),C("Gate Color","Gate"),C("Hook Color","Hook"),C("Pallet Color","Pallet"),C("Window Color","Window")}},
   {name="ESP Display",controls={T("Show Next Map",true),T("Indikator Stun Killer"),T("Show (FPS & Spectator)",true),T("Info Perk")}},
   {name="Target",controls={T("Target SCP / Zombie"),TC("SCP / Zombie Color","Purple"),T("Target Player"),TC("Player Color","Cyan"),T("Target Killer"),TC("Target Killer Color","Red"),T("Target Generator"),TC("Target Generator Color","Yellow"),T("Target Pallet"),TC("Target Pallet Color","Orange"),T("Target Window / Vault"),TC("Window / Vault Color","Blue")}},
  }},
@@ -519,7 +507,6 @@ search:GetPropertyChangedSignal("Text"):Connect(function()
  for _,r in ipairs(allRows) do r.frame.Visible=(q=="") or r.name:find(q,1,true)~=nil end
 end)
 
--- Minimize icon
 local icon=new("TextButton",{Text="",BackgroundColor3=Color3.fromRGB(20,10,35),Size=UDim2.fromOffset(52,52),Position=window.Position,Visible=false,AutoButtonColor=false},gui)
 corner(icon,26)
 local iconStroke=new("UIStroke",{Color=Color3.new(1,1,1),Thickness=3},icon)
@@ -571,7 +558,7 @@ draggable(top,window)
 draggable(icon,icon,restore)
 
 -- ============================================================
--- LOCAL UTILITY (dari Aletta asli)
+-- LOCAL UTILITY
 -- ============================================================
 local originalWalkSpeed = 16
 local originalJumpPower = 50
@@ -836,7 +823,7 @@ Hooks["Stop Emote"]=function()
 end
 
 -- ============================================================
--- ESP (dari Aletta asli)
+-- ESP (OPTIMIZED + GATE FILTER)
 -- ============================================================
 local espFolder = Instance.new("Folder")
 espFolder.Name = "AlettaESP"
@@ -849,7 +836,8 @@ espGui.Parent = player.PlayerGui
 
 local espColorMap = {
  Survivor=Color3.fromRGB(70,220,255), Killer=Color3.fromRGB(255,80,80), Zombie=Color3.fromRGB(190,70,255),
- Generator=Color3.fromRGB(255,235,50), Gate=Color3.fromRGB(255,190,50), Hook=Color3.fromRGB(255,90,130), Pallet=Color3.fromRGB(255,150,50)
+ Generator=Color3.fromRGB(255,235,50), Gate=Color3.fromRGB(255,190,50), Hook=Color3.fromRGB(255,90,130), 
+ Pallet=Color3.fromRGB(255,150,50), Window=Color3.fromRGB(60,220,255)
 }
 
 local function clearESP()
@@ -901,9 +889,10 @@ end
 local function objectKind(obj)
  local n=obj.Name:lower()
  if n:find("generator") then return "Generator" end
- if n:find("gate") or n:find("exit") then return "Gate" end
  if n:find("hook") or n:find("scourge") then return "Hook" end
  if n:find("pallet") then return "Pallet" end
+ if n:find("window") or n:find("vault") then return "Window" end
+ if n:find("gate") or n:find("exit") or n:find("escape") then return "Gate" end
  return nil
 end
 local function addObjectESP(obj,kind)
@@ -911,13 +900,14 @@ local function addObjectESP(obj,kind)
  if kind=="Gate" and not Values["ESP Gate"] then return end
  if kind=="Hook" and not Values["ESP Hook"] then return end
  if kind=="Pallet" and not Values["ESP Pallet"] then return end
+ if kind=="Window" and not Values["ESP Window"] then return end
  local part=obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart",true)
  if not part then return end
  local colorName=kind.." Color"
  local map={Purple=ACCENT,Red=Color3.fromRGB(255,70,70),Green=Color3.fromRGB(70,255,100),Blue=Color3.fromRGB(70,140,255),Cyan=Color3.fromRGB(60,220,255),Yellow=Color3.fromRGB(255,220,50),Orange=Color3.fromRGB(255,150,50),White=TEXT,Pink=Color3.fromRGB(255,100,200)}
  local color=map[Values[colorName]] or espColorMap[kind]
  local hl=Instance.new("Highlight"); hl.Adornee=obj; hl.FillTransparency=.88; hl.OutlineColor=color; hl.FillColor=color; hl.Parent=espFolder
- if Values["Show Name"] or Values["Show Distance"] then
+ if kind=="Generator" and (Values["Show Name"] or Values["Show Distance"]) then
   local bb=Instance.new("BillboardGui"); bb.Adornee=part; bb.Size=UDim2.fromOffset(150,30); bb.StudsOffset=Vector3.new(0,2.5,0); bb.AlwaysOnTop=true; bb.Parent=espFolder
   local txt=Instance.new("TextLabel"); txt.BackgroundTransparency=1; txt.Size=UDim2.fromScale(1,1); txt.Font=Enum.Font.GothamBold; txt.TextSize=12; txt.TextColor3=color; txt.TextStrokeTransparency=.2; txt.Parent=bb
   local text=Values["Show Name"] and obj.Name or kind
@@ -926,25 +916,49 @@ local function addObjectESP(obj,kind)
   bb.Parent=espGui
  end
 end
+local lastRebuild = 0
+local cachedHasGenerator = false
 local function rebuildESP()
+ if tick() - lastRebuild < 1 then return end
+ lastRebuild = tick()
  clearESP()
  if not Values["Enable ESP"] then return end
+ 
+ -- Cache: cek sekali apakah ada generator (tanda in-game)
+ cachedHasGenerator = false
+ for _,o in ipairs(workspace:GetDescendants()) do
+  if o.Name:lower():find("generator") then
+   cachedHasGenerator = true
+   break
+  end
+ end
+ 
  for _,plr in ipairs(Players:GetPlayers()) do addCharacterESP(plr) end
  for _,obj in ipairs(workspace:GetDescendants()) do
   local kind=objectKind(obj)
-  if kind and (obj:IsA("Model") or obj:IsA("BasePart")) then addObjectESP(obj,kind) end
+  if kind and (obj:IsA("Model") or obj:IsA("BasePart")) then
+   -- Skip Gate kalau masih di lobby (tidak ada generator)
+   if kind=="Gate" and not cachedHasGenerator then
+    -- skip
+   else
+    addObjectESP(obj,kind)
+   end
+  end
  end
 end
 Hooks["Enable ESP"]=function(on)
  if on then
+  lastRebuild=0
   rebuildESP()
+  FeatureManager:Connect("Enable ESP",Players.PlayerAdded,function() task.wait(1) lastRebuild=0 rebuildESP() end)
+  FeatureManager:Connect("Enable ESP",Players.PlayerRemoving,function() task.wait(0.5) lastRebuild=0 rebuildESP() end)
   FeatureManager:Connect("Enable ESP",RunService.Heartbeat,function()
-   if math.floor(os.clock()*2)%2==0 then rebuildESP() end
+   if tick() - lastRebuild > 5 then rebuildESP() end
   end)
  else clearESP() end
 end
-for _,n in ipairs({"ESP Survivor","ESP Killer","ESP Zombie Dummy","ESP Generator","ESP Gate","ESP Hook","ESP Pallet","Show Name","Show Distance","Show Health","Survivor Color","Killer Color","Zombie Dummy Color","Generator Color","Gate Color","Hook Color","Pallet Color"}) do
- Hooks[n]=function() if Values["Enable ESP"] then rebuildESP() end end
+for _,n in ipairs({"ESP Survivor","ESP Killer","ESP Zombie Dummy","ESP Generator","ESP Gate","ESP Hook","ESP Pallet","ESP Window","Show Name","Show Distance","Show Health","Survivor Color","Killer Color","Zombie Dummy Color","Generator Color","Gate Color","Hook Color","Pallet Color","Window Color"}) do
+ Hooks[n]=function() if Values["Enable ESP"] then lastRebuild=0 rebuildESP() end end
 end
 
 -- ============================================================
@@ -1003,7 +1017,7 @@ Hooks["Enable Auto Skillcheck Perfect"]=function(on)
 end
 
 -- ============================================================
--- GAME-SPECIFIC SAFE HANDLERS (placeholder)
+-- GAME-SPECIFIC SAFE HANDLERS
 -- ============================================================
 local gameSpecific = {
  "Invisible","Speed Boost","No Fall Damage","Flee Killer (Auto TP Menjauh)",
@@ -1220,7 +1234,6 @@ RunService.RenderStepped:Connect(function()
    return
   end
   
-  -- Veil
   if Values["Veil"] then
    if Values["Veil Show FOV"] and veilFovCircle then
     veilFovCircle.Position=Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y/2)
@@ -1251,7 +1264,6 @@ RunService.RenderStepped:Connect(function()
    if veilMarker then veilMarker.Visible=false end
   end
   
-  -- Pistol
   if Values["Pistol"] then
    if Values["Pistol Show FOV"] and pistolFovCircle then
     pistolFovCircle.Position=Vector2.new(camera.ViewportSize.X/2,camera.ViewportSize.Y/2)
@@ -1290,7 +1302,6 @@ RunService.RenderStepped:Connect(function()
    if pistolMarker then pistolMarker.Visible=false end
   end
   
-  -- Parry Helper
   if Values["ESP Range"] then
    local elapsed=tick()-fairState.lastParry
    if elapsed>=FAIR.parryCooldown then fairState.parryReady=true end
@@ -1385,4 +1396,4 @@ RunService.RenderStepped:Connect(function()
  end)
 end)
 
-print("[Aletta Creator + Fair Features] Loaded successfully.")
+print("[Aletta Creator + Fair v3] Loaded successfully.")
