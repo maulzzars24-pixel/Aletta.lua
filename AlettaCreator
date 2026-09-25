@@ -1789,15 +1789,16 @@ do
         end
     end, "/120")
 
-    -- RIGHT COLUMN: Auto Feature
+    -- RIGHT COLUMN: Survivor reference list (exactly based on the screenshots)
+    -- Semua isi panel kanan lama dihapus dan diganti daftar Survivor dari referensi.
     addSection(right, "⚡  Auto feature")
 
     addButton(right, "Auto Escape", function()
-        print("[Aletta] Auto Escape — developer/test action.")
+        print("[Aletta] Auto Escape — developer/test control.")
     end)
 
     addButton(right, "Drop All Pallets", function()
-        print("[Aletta] Drop All Pallets — developer/test action.")
+        print("[Aletta] Drop All Pallets — developer/test control.")
     end)
 
     addToggle(right, "Anti Block Window", false)
@@ -1809,9 +1810,9 @@ do
     addToggle(right, "Pallet Save Team", false)
     addToggle(right, "Safe Mode", true)
 
-    addSlider(right, "Radius Pallet", 0, 20, 10, nil, "/20")
-
     addSection(right, "─  Auto menu")
+
+    addSlider(right, "Radius Pallet", 0, 20, 10, nil, "/20")
 
     addDropdown(right, "self progres Heal", {
         "None", "Auto", "Legit"
