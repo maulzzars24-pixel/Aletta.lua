@@ -383,23 +383,15 @@ local CONFIG = {
     },
 
     {
-        name = "🎯 AIM Konon Katanya",
+        name = "Aimbot",
         features = {
             {name = "Aimbot & Crosshair", controls = {
                 T("Enable Aimbot"),
-                T("Show FOV Circle"),
-                S("FOV Circle Radius", 0, 600, 180),
-                S("Max Distance", 0, 1200, 300),
-                S("Aimbot Smoothness", 0, 12, 6),
-                I("Predict Aim Offset", 0, "Atur angka sendiri"),
                 T("Hold RMB to Aim", true),
+                T("Show FOV Circle"),
                 D("Crosshair Style", {"Off", "Dot", "Cross", "Circle"}, "Off"),
                 T("Show Aim Line (3D)"),
                 I("FOV Radius (pixels)", 120)
-            }},
-            {name = "Aim Flash", controls = {
-                T("Aim [Flash]"),
-                S("Aim Offset [Y]", 0, 16, 8)
             }},
             {name = "Silent Flask (The Cure)", locked = true, controls = {
                 T("Silent Flask (The Cure)")
@@ -422,99 +414,90 @@ local CONFIG = {
                 T("Pistol"),
                 TC("Pistol Color", "Green"),
                 K("Pistol Hotkey", "Q"),
-                T("Sound TOF"),
-                D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3", "Sound 4", "Sound 5"}, "Sound 1"),
-                D("Target Aim", {"Torso", "Head", "Root"}, "Torso"),
                 T("Block Aim Knocked", true),
                 T("Show Laser", true),
                 T("Aim Lock"),
                 K("Auto Prediksi Hotkey", "E"),
                 T("Auto Prediksi"),
-                S("Prediction", 0, 60, 35),
+                S("Prediction", 0, 50, 35),
                 S("Aim Offset", -10, 10, -1),
-                D("Pistol Target", {"Killer", "Survivor", "Zombie/SCP"}, "Killer")
+                T("Sound TOF"),
+                D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3"}, "Sound 1"),
+                D("Target Aim", {"Head", "Torso", "Legs"}, "Torso"),
+                D("Pistol Target", {"Killer", "Survivor", "Zombie"}, "Killer")
             }},
             {name = "Target Menu", controls = {
                 K("Mobile Target Shortcut Key", "T"),
                 T("Show Mobile Target Shortcut"),
                 T("Pistol FOV Mode"),
                 T("Pistol Show FOV"),
-                S("Pistol FOV Radius", 0, 320, 120)
+                S("Pistol FOV Radius", 0, 300, 120)
             }},
             {name = "Veil", controls = {
                 T("Veil"),
                 K("Veil Hotkey", "V"),
-                T("Smart Prediction Mode"),
-                S("Smart Prediction Lead", 0, 60, 17),
-                T("Show FOV"),
-                T("Snapline"),
-                S("FOV Radius", 0, 320, 120),
-                S("Distance", 0, 600, 150),
-                S("Spear Speed", 0, 220, 165),
-                S("Spear Gravity", 0, 220, 103)
+                T("Smart Predict Mode"),
+                S("Smart Predict Lead", 0, 50, 17),
+                T("Veil Show FOV", true),
+                T("Snapline", true),
+                S("Veil FOV Radius", 0, 300, 120),
+                S("Veil Distance", 0, 500, 150),
+                S("Spear Speed", 0, 200, 165),
+                S("Spear Gravity", 0, 200, 103)
             }}
         }
     },
 
     {
-        name = "Animation",
+        name = "MISC",
         features = {
-            {name = "Custom Animations Tools", locked = true, controls = {
-                T("Enable Custom Animation")
+            {name = "Screen", controls = {
+                {type = "label", label = "━━━━━ Camera ━━━━━", height = 28},
+                T("Camera DBD"),
+                S("Camera Height", -10, 10, 0),
+                S("Camera Stiffness", 0, 32, 16),
+                {type = "label", label = "━━━━━ Screen ━━━━━", height = 28},
+                T("Custom Resolution"),
+                S("Resolution Scale", -4, 4, 0)
             }},
-            {name = "Free Emotes (Bypass Shop)", controls = {
-                D("Select Emote", {"24 Hour Cinderella"}, "24 Hour Cinderella"),
-                B("Play Emote"),
-                B("Stop Emote")
+            {name = "Movement", controls = {
+                T("Noclip"),
+                T("Hit Radius"),
+                S("Fly Speed", 0, 600, 100)
             }},
-            {name = "Avatar Changer", controls = {
-                D("Select Mode", {"Template Avatar", "Username"}, "Template Avatar"),
-                D("Select Avatar", {"Select Option"}, "Select Option"),
-                I("Input Username", "", "Enter Value"),
-                T("Enable Avatar Changer"),
-                B("Apply Now"),
-                B("Reset to Original")
-            }}
-        }
-    },
-
-    {
-        name = "Settings",
-        features = {
-            {name = "Killer prediction", controls = {T("Predict Killer")}},
-            {name = "Player Utility", controls = {
-                I("Speed Value", 20),
-                T("Enable Run Speed"),
-                T("No Clip"),
-                T("Moonwalk (Body Follows Camera)"),
-                T("Always Run (PC)"),
-                T("Unlimited Zoom")
+            {name = "Visual Enchancements", controls = {
+                T("Skip Cutscene"),
+                T("FullBright"),
+                S("Fullbright Time", 0, 32, 16)
             }},
-            {name = "Visuals", controls = {
-                T("Full Bright"),
-                T("No Fog")
+            {name = "Tools", controls = {
+                T("Fling"),
+                S("Fling Power", 0, 200000, 50000)
             }},
-            {name = "Performance", controls = {
-                T("Disable Particles"),
-                T("Lower Graphics"),
-                T("Disable Shadows"),
-                T("FPS Unlocker"),
-                I("FPS Cap Value", 60),
-                T("FPS Counter")
+            {name = "Spoofer Profil", controls = {
+                T("Fake Name"),
+                {type = "label", label = "━━━━━ Profil Menu ━━━━━", height = 28},
+                T("Fake Profil"),
+                I("Set Level", "", "Isi angka"),
+                I("Set Gears", "", "Isi angka"),
+                I("Set Screws", "", "Isi angka")
             }},
-            {name = "Server", controls = {
-                B("Rejoin Server"),
-                B("Serverhop (Find Small Server)")
+            {name = "GUI Mob", controls = {
+                T("Infinite Zoom"),
+                T("Invisible GUI"),
+                T("Sky Changer"),
+                T("Moonwalk GUI"),
+                T("Emote GUI")
             }},
-            {name = "Hide Stats (Spoof)", controls = {
-                T("Enable Spoof Stats & Streamer Mode"),
-                I("Spoof Username", "Su_shin1"),
-                I("Spoof Level", 513),
-                I("Spoof Screws", 396428),
-                I("Spoof Gears", 87628)
+            {name = "Jump Mod", controls = {
+                T("High Jump"),
+                S("Jump Power", 0, 600, 50),
+                T("Infinite Jump")
             }},
-            {name = "Skip Cutscenes", controls = {
-                T("Skip Cutscenes")
+            {name = "Graphics", controls = {
+                T("Smooth HDR Graphics"),
+                T("Unlock FPS"),
+                D("Target FPS", {"60", "120", "240", "Max"}, "60")
             }}
         }
     },
@@ -1769,68 +1752,6 @@ Hooks["Crosshair Y Offset"] = function()
 end
 
 -- =========================================================
--- AIM FOV CIRCLE
--- =========================================================
-
-local aimFovGui
-local aimFovCircle
-
-local function destroyAimFOV()
-    if aimFovGui then
-        aimFovGui:Destroy()
-        aimFovGui = nil
-        aimFovCircle = nil
-    end
-end
-
-local function updateAimFOV()
-    if not Values["Show FOV Circle"] then
-        destroyAimFOV()
-        return
-    end
-
-    if not aimFovGui then
-        aimFovGui = Instance.new("ScreenGui")
-        aimFovGui.Name = "AlettaAimFOV"
-        aimFovGui.ResetOnSpawn = false
-        aimFovGui.IgnoreGuiInset = true
-        aimFovGui.DisplayOrder = 8
-        aimFovGui.Parent = playerGui
-
-        aimFovCircle = Instance.new("Frame")
-        aimFovCircle.Name = "FOVCircle"
-        aimFovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
-        aimFovCircle.Position = UDim2.fromScale(0.5, 0.5)
-        aimFovCircle.BackgroundTransparency = 1
-        aimFovCircle.BorderSizePixel = 0
-        aimFovCircle.Parent = aimFovGui
-
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(1, 0)
-        corner.Parent = aimFovCircle
-
-        local stroke = Instance.new("UIStroke")
-        stroke.Name = "CircleStroke"
-        stroke.Color = ACCENT
-        stroke.Thickness = 1.5
-        stroke.Transparency = 0.1
-        stroke.Parent = aimFovCircle
-    end
-
-    local radius = math.clamp(tonumber(Values["FOV Circle Radius"]) or 180, 0, 600)
-    aimFovCircle.Size = UDim2.fromOffset(radius * 2, radius * 2)
-    aimFovCircle.Visible = radius > 0
-end
-
-Hooks["Show FOV Circle"] = function()
-    updateAimFOV()
-end
-
-Hooks["FOV Circle Radius"] = function()
-    updateAimFOV()
-end
-
--- =========================================================
 -- LOCAL AIM TARGET TEST
 -- =========================================================
 
@@ -1846,8 +1767,9 @@ local function aimPartFor(characterModel)
     if targetMode == "Head" then
         return characterModel:FindFirstChild("Head")
             or characterModel:FindFirstChild("HumanoidRootPart")
-    elseif targetMode == "Root" then
-        return characterModel:FindFirstChild("HumanoidRootPart")
+    elseif targetMode == "Legs" then
+        return characterModel:FindFirstChild("LeftFoot")
+            or characterModel:FindFirstChild("HumanoidRootPart")
     end
 
     return characterModel:FindFirstChild("UpperTorso")
@@ -1902,7 +1824,7 @@ local function getAimTarget()
                     validRole = role == "Killer"
                 elseif targetMode == "Survivor" then
                     validRole = role == "Survivor"
-                elseif targetMode == "Zombie/SCP" then
+                elseif targetMode == "Zombie" then
                     validRole = role == "Zombie"
                         or role == "Zombie Dummy"
                         or role == "SCP"
@@ -2429,6 +2351,113 @@ end
 -- SAFE GAME-SPECIFIC TEST HANDLERS
 -- =========================================================
 
+-- =========================================================
+-- MISC LOCAL/TEST HOOKS
+-- =========================================================
+
+local miscOriginal = {
+    CameraMaxZoomDistance = camera and camera.CameraType == Enum.CameraType.Custom and player.CameraMaxZoomDistance or nil,
+    WalkSpeed = nil,
+    JumpPower = nil,
+    LightingBrightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd
+}
+
+local function getHumanoid()
+    local character = player.Character
+    return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+Hooks["Camera DBD"] = function(on)
+    Values["Camera DBD"] = on == true
+end
+
+Hooks["Camera Height"] = function(value)
+    Values["Camera Height"] = tonumber(value) or 0
+end
+
+Hooks["Camera Stiffness"] = function(value)
+    Values["Camera Stiffness"] = tonumber(value) or 0
+end
+
+Hooks["Custom Resolution"] = function(on)
+    Values["Custom Resolution"] = on == true
+    print("[Aletta] Custom Resolution is a GUI/test setting; Roblox client resolution is not changed by this LocalScript.")
+end
+
+Hooks["Noclip"] = function(on)
+    if not on then return end
+    print("[Aletta] Noclip enabled as a test toggle. Server collision/validation remains authoritative.")
+end
+
+Hooks["FullBright"] = function(on)
+    if on then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+    else
+        Lighting.Brightness = miscOriginal.LightingBrightness or Lighting.Brightness
+        Lighting.ClockTime = miscOriginal.ClockTime or Lighting.ClockTime
+        Lighting.FogEnd = miscOriginal.FogEnd or Lighting.FogEnd
+    end
+end
+
+Hooks["Fullbright Time"] = function(value)
+    Values["Fullbright Time"] = tonumber(value) or 16
+    if Values["FullBright"] then
+        Lighting.ClockTime = Values["Fullbright Time"]
+    end
+end
+
+Hooks["Infinite Zoom"] = function(on)
+    if on then
+        player.CameraMaxZoomDistance = 100000
+    else
+        player.CameraMaxZoomDistance = miscOriginal.CameraMaxZoomDistance or 128
+    end
+end
+
+Hooks["High Jump"] = function(on)
+    local h = getHumanoid()
+    if not h then return end
+    if on then
+        miscOriginal.JumpPower = h.JumpPower
+        h.JumpPower = tonumber(Values["Jump Power"]) or 50
+    else
+        h.JumpPower = miscOriginal.JumpPower or 50
+    end
+end
+
+Hooks["Jump Power"] = function(value)
+    Values["Jump Power"] = tonumber(value) or 50
+    if Values["High Jump"] then
+        local h = getHumanoid()
+        if h then h.JumpPower = Values["Jump Power"] end
+    end
+end
+
+Hooks["Skip Cutscene"] = function(on)
+    if on then
+        print("[Aletta] Skip Cutscene ON - hook game-specific diperlukan untuk memutus cutscene dengan aman.")
+    end
+end
+
+Hooks["Invisible GUI"] = function(on)
+    if gui then
+        window.Visible = not on
+    end
+end
+
+Hooks["Unlock FPS"] = function(on)
+    print("[Aletta] Unlock FPS:", on, "Target FPS:", Values["Target FPS"] or "60")
+end
+
+Hooks["Target FPS"] = function(value)
+    Values["Target FPS"] = value
+    print("[Aletta] Target FPS set to", tostring(value), "(display setting)")
+end
+
 local gameSpecific = {
     "Invisible",
     "Speed Boost",
@@ -2557,10 +2586,6 @@ player.CharacterAdded:Connect(function()
     if Values["Enable ESP"] then
         task.delay(0.5, rebuildESP)
     end
-
-    if Values["Show FOV Circle"] then
-        task.delay(0.5, updateAimFOV)
-    end
 end)
 
 -- =========================================================
@@ -2571,7 +2596,6 @@ gui.Destroying:Connect(function()
     FeatureManager:StopAll()
     destroyCrosshair()
     clearESP()
-    destroyAimFOV()
 
     if mwGui then
         mwGui:Destroy()
