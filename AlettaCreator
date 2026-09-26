@@ -56,6 +56,10 @@ for _, name in ipairs({"AlettaCreatorGUI", "AlettaCrosshair", "AlettaESPLabels",
 end
 
 local Values = {}
+Values["Auto Skill Check Mode"] = "Legit"
+Values["Auto Skill Check"] = false
+Values["Auto Sprint Mobile"] = false
+
 local Hooks = {}
 local Defaults = {}
 local Controls = {}
@@ -180,44 +184,47 @@ local CONFIG = {
     {
         name = "Survivor",
         features = {
+            {name = "Survivor Controls", controls = {
+                L("Semua menu Survivor tersedia di bawah ini. Scroll untuk melihat seluruh fitur.", 42)
+            }},
             {name = "Escape & Pallet", controls = {
-                B("Auto Escape [1x Click]"),
-                B("Drop All Pallets [1x Click]"),
+                B("Auto Escape [ 1x Click ]"),
+                B("Drop All Pallets [ 1x Click ]"),
                 T("Anti Block Window", true),
                 T("Pallet Save Team", true),
                 T("Safe Mode", true),
                 S("Radius Pallet", 0, 24, 12)
             }},
             {name = "Auto Menu", controls = {
-                T("Self Progress Heal"),
+                T("Self Proges Heal"),
                 T("Auto Heal Team")
             }},
             {name = "Parry Menu", controls = {
                 T("Auto Parry"),
-                T("Fake Parry (Keybind R)"),
+                T("Fake Parry [Keybind R]"),
                 T("Safety Parry"),
                 T("Aggressive Parry"),
-                T("ESP Range"),
+                T("Esp Range"),
                 S("Parry Radius", 0, 26, 13),
                 S("Face Sensitivity", 0, 11, 5),
-                T("Ignore Skills - Hidden S1"),
-                T("Ignore Skills - Abyssal S1")
+                L("Ignore Skills\n   - Hidden S1\n   - Abyssal S1", 58)
             }},
             {name = "Flee Menu", controls = {
                 T("Flee Killer"),
                 S("Jarak Auto Flee", 0, 120, 60),
-                T("Auto Sprint (Mobile)"),
+                T("Auto Sprint Mobile"),
                 T("Auto Skill Check"),
-                D("Mode", {"Legit", "Instant", "Skip", "Normal", "Perfection"}, "Legit"),
+                D("Auto Skill Check Mode", {"Legit", "Instant", "Skip", "Normal", "Perfection"}, "Legit"),
                 T("Anti Fail Gene"),
-                B("Instant Teleport"),
+                D("Teleport Destination", {"Gate", "Generator", "Pallet", "Hook", "Teammate", "Killer"}, "Gate"),
+                B("Instant Teleport [ Teleport ke Bagian Yang di Tuju ]"),
                 T("Auto Crouch Dodge"),
                 T("Auto Bandage"),
                 T("Auto Crouch Veil"),
                 T("Anti Slow")
             }},
             {name = "Perks Mod", controls = {
-                D("Perks Mod", {"Default"}, "Default"),
+                D("Perks Mod", {"Default", "SpeedBoost", "Quick Recovery", "Flowstate", "Perfect Vault"}, "Default"),
                 T("SpeedBoost"),
                 S("Speed Boost Value", 0, 24, 12)
             }},
@@ -229,7 +236,9 @@ local CONFIG = {
                 S("Quick Recovery Cooldown", 40, 300, 170)
             }},
             {name = "Skill Generator", controls = {
-                S("Skill Check Speed", 0, 28, 14)
+                S("Skill Check Speed", 0, 28, 14),
+                T("Auto Skill Check Preview"),
+                D("Skill Check Preview Mode", {"Legit", "Normal", "Perfection"}, "Normal")
             }},
             {name = "Camera Menu", controls = {
                 T("Custom FOV"),
@@ -1424,6 +1433,34 @@ end
 
 Hooks["Unlimited Zoom"] = function(on)
     player.CameraMaxZoomDistance = on and 1000 or 128
+end
+
+Hooks["Auto Sprint Mobile"] = function(on)
+    local h = humanoid()
+    if not h then return end
+
+    -- Developer/test behavior: keep sprint state local and restore the
+    -- original WalkSpeed when disabled. Server-side movement validation
+    -- remains authoritative.
+    if on then
+        if Values["SpeedBoost"] then
+            h.WalkSpeed = tonumber(Values["Speed Boost Value"]) or h.WalkSpeed
+        else
+            h.WalkSpeed = math.max(h.WalkSpeed, 20)
+        end
+    else
+        h.WalkSpeed = originalWalkSpeed
+    end
+end
+
+Hooks["Auto Skill Check Mode"] = function(mode)
+    Values["Auto Skill Check Mode"] = tostring(mode or "Legit")
+    -- Mode selection is stored for the game's legitimate skill-check
+    -- controller. No remote validation is bypassed here.
+end
+
+Hooks["Auto Skill Check"] = function(on)
+    Values["Auto Skill Check"] = on == true
 end
 
 Hooks["Custom FOV"] = function(on)
