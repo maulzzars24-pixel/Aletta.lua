@@ -46,6 +46,7 @@ local TEXT = Color3.fromRGB(255, 255, 255)
 -- Asset gambar tombol buka/tutup GUI.
 local BACKGROUND_ID = "rbxassetid://114593611204629"
 local LOGO_ID = "rbxassetid://79108447755192"
+local HEADER_LOGO_ID = "rbxassetid://122038427201250"
 local ICON_ID = LOGO_ID
 
 -- Hapus GUI lama jika script dijalankan ulang.
@@ -669,41 +670,20 @@ local bgDark = new("Frame", {
 }, window)
 corner(bgDark, 10)
 
--- Separate logo layer so the Aletta logo remains clearly visible.
-local logoBadge = new("ImageLabel", {
-    Name = "AlettaLogo",
-    Image = LOGO_ID,
-    ScaleType = Enum.ScaleType.Crop,
-    BackgroundColor3 = Color3.fromRGB(18, 8, 32),
-    BackgroundTransparency = 0.08,
-    Size = UDim2.fromOffset(48, 48),
-    Position = UDim2.fromOffset(10, 4),
-    ImageTransparency = 0,
-    Active = false,
-    Visible = false,
-    ZIndex = 8
-}, window)
-corner(logoBadge, 24)
-new("UIStroke", {
-    Color = ACCENT,
-    Thickness = 2
-}, logoBadge)
-
 local top = new("Frame", {
     Size = UDim2.new(1, 0, 0, 40),
     BackgroundTransparency = 1,
     ZIndex = 10
 }, window)
 
-new("TextLabel", {
-    Text = "Aletta Creator",
-    Font = Enum.Font.GothamBold,
-    TextSize = 18,
-    TextColor3 = TEXT,
+local headerLogo = new("ImageLabel", {
+    Name = "AlettaHeaderLogo",
+    Image = HEADER_LOGO_ID,
+    ScaleType = Enum.ScaleType.Fit,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(64, 0),
-    Size = UDim2.fromOffset(145, 40),
-    TextXAlignment = Enum.TextXAlignment.Left
+    Position = UDim2.fromOffset(12, 5),
+    Size = UDim2.fromOffset(155, 30),
+    ZIndex = 11
 }, top)
 
 new("TextLabel", {
@@ -712,7 +692,7 @@ new("TextLabel", {
     TextSize = 12,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(215, 0),
+    Position = UDim2.fromOffset(210, 0),
     Size = UDim2.fromOffset(250, 40),
     TextXAlignment = Enum.TextXAlignment.Left
 }, top)
@@ -1435,14 +1415,14 @@ local icon = new("ImageButton", {
     ScaleType = Enum.ScaleType.Fit,
     BackgroundColor3 = Color3.fromRGB(18, 8, 32),
     BackgroundTransparency = 0,
-    Size = UDim2.fromOffset(48, 48),
+    Size = UDim2.fromOffset(44, 44),
     Position = UDim2.fromOffset(18, 120),
     Visible = true,
     Active = true,
     AutoButtonColor = false,
     ZIndex = 100
 }, gui)
-corner(icon, 24)
+corner(icon, 22)
 
 local iconStroke = new("UIStroke", {
     Color = ACCENT,
@@ -1457,29 +1437,6 @@ new("UIGradient", {
     }),
     Rotation = 45
 }, iconStroke)
-
--- Fallback kecil jika asset logo gagal dimuat Roblox.
-local iconFallback = new("TextLabel", {
-    Name = "LogoFallback",
-    Text = "A",
-    Font = Enum.Font.GothamBlack,
-    TextSize = 24,
-    TextColor3 = Color3.fromRGB(255, 255, 255),
-    BackgroundTransparency = 1,
-    Size = UDim2.fromScale(1, 1),
-    ZIndex = 101
-}, icon)
-
-local logoLoaded = false
-icon:GetPropertyChangedSignal("IsLoaded"):Connect(function()
-    logoLoaded = icon.IsLoaded
-    iconFallback.Visible = not logoLoaded
-end)
-pcall(function()
-    logoLoaded = icon.IsLoaded
-    iconFallback.Visible = not logoLoaded
-end)
-
 
 local function draggable(handle, target, onTap)
     local dragging = false
@@ -1537,7 +1494,15 @@ local function restore()
 end
 
 minBtn.Activated:Connect(minimize)
-icon.Activated:Connect(restore)
+icon.Activated:Connect(function()
+    if window.Visible then
+        minimize()
+    else
+        restore()
+    end
+end)
+
+-- Panel dan logo mempunyai posisi/drag masing-masing.
 draggable(top, window)
 draggable(icon, icon)
 
