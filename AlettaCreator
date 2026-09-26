@@ -44,7 +44,8 @@ local FIELD = Color3.fromRGB(38, 30, 54)
 local TEXT = Color3.fromRGB(255, 255, 255)
 
 -- Asset gambar tombol buka/tutup GUI.
-local ICON_ID = "rbxassetid://111827431469508"
+local BACKGROUND_ID = "rbxassetid://114593611204629"
+local LOGO_ID = "rbxassetid://79108447755192"
 
 -- Hapus GUI lama jika script dijalankan ulang.
 for _, name in ipairs({"AlettaCreatorGUI", "AlettaCrosshair", "AlettaESPLabels", "AlettaMWIndicator"}) do
@@ -426,7 +427,7 @@ local CONFIG = {
                 T("Sound TOF"),
                 D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3"}, "Sound 1"),
                 D("Target Aim", {"Head", "Torso", "Legs"}, "Torso"),
-                D("Pistol Target", {"Killer", "Survivor", "Nearest"}, "Killer")
+                D("Pistol Target", {"Killer", "Survivor", "Zombie"}, "Killer")
             }},
             {name = "Target Menu", controls = {
                 K("Mobile Target Shortcut Key", "T"),
@@ -596,27 +597,53 @@ new("UIGradient", {
     Rotation = 45
 }, wStroke)
 
+--// Purple background + Aletta logo composition
 local bgImg = new("ImageLabel", {
-    Image = ICON_ID,
+    Name = "AlettaBackgroundArt",
+    Image = BACKGROUND_ID,
+    ImageTransparency = 0.12,
     ScaleType = Enum.ScaleType.Crop,
     BackgroundTransparency = 1,
     Size = UDim2.fromScale(1, 1),
-    Active = false
+    Active = false,
+    ZIndex = 0
 }, window)
 corner(bgImg, 10)
 
 local bgDark = new("Frame", {
+    Name = "AlettaBackgroundTint",
     Size = UDim2.fromScale(1, 1),
-    BackgroundColor3 = Color3.fromRGB(8, 4, 16),
-    BackgroundTransparency = 0.25,
+    BackgroundColor3 = Color3.fromRGB(8, 3, 18),
+    BackgroundTransparency = 0.34,
     BorderSizePixel = 0,
-    Active = false
+    Active = false,
+    ZIndex = 1
 }, window)
 corner(bgDark, 10)
 
+-- Separate logo layer so the Aletta logo remains clearly visible.
+local logoBadge = new("ImageLabel", {
+    Name = "AlettaLogo",
+    Image = LOGO_ID,
+    ScaleType = Enum.ScaleType.Crop,
+    BackgroundColor3 = Color3.fromRGB(18, 8, 32),
+    BackgroundTransparency = 0.08,
+    Size = UDim2.fromOffset(48, 48),
+    Position = UDim2.fromOffset(10, 4),
+    ImageTransparency = 0,
+    Active = false,
+    ZIndex = 8
+}, window)
+corner(logoBadge, 24)
+new("UIStroke", {
+    Color = ACCENT,
+    Thickness = 2
+}, logoBadge)
+
 local top = new("Frame", {
     Size = UDim2.new(1, 0, 0, 40),
-    BackgroundTransparency = 1
+    BackgroundTransparency = 1,
+    ZIndex = 10
 }, window)
 
 new("TextLabel", {
@@ -657,6 +684,7 @@ local side = new("ScrollingFrame", {
     Position = UDim2.fromOffset(8, 48),
     Size = UDim2.fromOffset(150, 274),
     BackgroundTransparency = 1,
+    ZIndex = 10,
     ScrollBarThickness = 0,
     BorderSizePixel = 0,
     CanvasSize = UDim2.new(),
@@ -692,7 +720,8 @@ local title = new("TextLabel", {
     BackgroundTransparency = 1,
     Position = UDim2.fromOffset(172, 48),
     Size = UDim2.fromOffset(290, 28),
-    TextXAlignment = Enum.TextXAlignment.Left
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 10
 }, window)
 
 new("Frame", {
@@ -1286,7 +1315,7 @@ end)
 -- =========================================================
 
 local icon = new("ImageButton", {
-    Image = ICON_ID,
+    Image = LOGO_ID,
     ScaleType = Enum.ScaleType.Crop,
     BackgroundColor3 = Color3.fromRGB(20, 10, 35),
     Size = UDim2.fromOffset(58, 58),
@@ -1779,6 +1808,10 @@ local function getAimTarget()
                     validRole = role == "Killer"
                 elseif targetMode == "Survivor" then
                     validRole = role == "Survivor"
+                elseif targetMode == "Zombie" then
+                    validRole = role == "Zombie"
+                        or role == "Zombie Dummy"
+                        or role == "SCP"
                 end
 
                 if validRole then
