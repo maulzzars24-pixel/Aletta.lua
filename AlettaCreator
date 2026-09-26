@@ -505,14 +505,37 @@ local CONFIG = {
     {
         name = "Config",
         features = {
-            {name = "Auto Save", controls = {
-                T("Auto Save Config", true)
+            {name = "Menu Setting", controls = {
+                S("Corner Radius", 0, 20, 10),
+                T("Open Keybind", true),
+                T("Custom Cursor"),
+                T("Lock GUI"),
+                K("Menu Bind", "RightShift")
             }},
-            {name = "Config Management", controls = {
-                B("Save Config Now"),
-                B("Reset to Default"),
-                L("Perhatian\n\nSetting tersimpan di sesi ini. Untuk perubahan karakter/game-specific, gunakan source server resmi project.\n\nAuto Save melakukan snapshot lokal selama sesi.", 180),
-                B("Delete Config File")
+            {name = "Theme", controls = {
+                T("Background Color", true),
+                D("Background Color Value", {"Black", "Dark Purple", "Purple", "Navy", "Dark Blue", "Dark Gray"}, "Dark Purple"),
+                T("Main Color", true),
+                D("Main Color Value", {"Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Orange"}, "Purple"),
+                T("Accent Color", true),
+                D("Accent Color Value", {"Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Orange", "Yellow", "White"}, "Purple"),
+                T("Outline Color", true),
+                D("Outline Color Value", {"White", "Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Yellow", "Black"}, "White"),
+                T("Font Color", true),
+                D("Font Color Value", {"White", "Light Gray", "Gray", "Purple", "Cyan", "Pink", "Yellow"}, "White"),
+                D("Font Face", {"Fantast", "Goth", "Jura", "Roboto", "RobotoMono", "SourceSans"}, "Roboto"),
+                D("Theme List", {"BBot", "Fatality", "Jester", "Mint", "Tokyo Night", "Ubuntu", "Quartz"}, "Tokyo Night")
+            }},
+            {name = "Configuration", controls = {
+                I("Config Name", "", "Masukan Nama"),
+                B("Create Config"),
+                D("Config List", {"No Config"}, "No Config"),
+                B("Load Config"),
+                B("Overwrite Config"),
+                B("Delete Config"),
+                B("Refresh List"),
+                B("Set as Autoload"),
+                B("Reset Autoload")
             }}
         }
     }
@@ -535,10 +558,14 @@ local function new(className, props, parent)
     return object
 end
 
+local cornerObjects = {}
+
 local function corner(object, radius)
-    return new("UICorner", {
+    local c = new("UICorner", {
         CornerRadius = UDim.new(0, radius)
     }, object)
+    table.insert(cornerObjects, c)
+    return c
 end
 
 local function isPress(input)
@@ -1021,6 +1048,14 @@ local function makeControl(parent, control, order)
             commit(control.label, value)
         end
 
+        Controls[control.label].setOptions = function(options, current)
+            control.options = options or control.options
+            if current ~= nil then
+                button.Text = tostring(current)
+                Values[control.label] = current
+            end
+        end
+
     elseif control.type == "slider" then
         frame.Size = UDim2.new(1, 0, 0, 48)
         Values[control.label] = control.default
@@ -1303,7 +1338,7 @@ end)
 -- =========================================================
 
 local icon = new("ImageButton", {
-    Image = LOGO_ID,
+    Image = "rbxassetid://111827431469508",
     ScaleType = Enum.ScaleType.Crop,
     BackgroundColor3 = Color3.fromRGB(20, 10, 35),
     Size = UDim2.fromOffset(58, 58),
@@ -1333,6 +1368,7 @@ local function draggable(handle, target, onTap)
     local startPosition
 
     handle.InputBegan:Connect(function(input)
+        if Values["Lock GUI"] then return end
         if not isPress(input) then return end
 
         dragging = true
@@ -1919,44 +1955,278 @@ Hooks["Rejoin Server"] = function()
     end)
 end
 
-Hooks["Save Config Now"] = function()
-    local snapshot = {}
+local sessionConfigs = {}
+local autoloadConfig = nil
 
-    for key, value in pairs(Values) do
-        if typeof(value) == "EnumItem" then
-            snapshot[key] = value.Name
-        else
-            snapshot[key] = value
+local colorPresets = {
+    Black = Color3.fromRGB(8, 8, 10),
+    ["Dark Purple"] = Color3.fromRGB(18, 10, 30),
+    Purple = Color3.fromRGB(70, 35, 110),
+    Violet = Color3.fromRGB(105, 55, 170),
+    Blue = Color3.fromRGB(35, 90, 180),
+    ["Dark Blue"] = Color3.fromRGB(18, 30, 60),
+    Navy = Color3.fromRGB(15, 25, 45),
+    ["Dark Gray"] = Color3.fromRGB(28, 28, 32),
+    Cyan = Color3.fromRGB(30, 180, 200),
+    Pink = Color3.fromRGB(220, 80, 180),
+    Red = Color3.fromRGB(210, 60, 70),
+    Green = Color3.fromRGB(65, 190, 100),
+    Orange = Color3.fromRGB(230, 135, 45),
+    Yellow = Color3.fromRGB(230, 200, 55),
+    White = Color3.fromRGB(245, 245, 245),
+    ["Light Gray"] = Color3.fromRGB(205, 205, 210),
+    Gray = Color3.fromRGB(155, 155, 160),
+}
+
+local themePresets = {
+    ["BBot"] = {main="Black", accent="Purple", outline="White", font="White", background="Black"},
+    ["Fatality"] = {main="Dark Purple", accent="Red", outline="Red", font="White", background="Black"},
+    ["Jester"] = {main="Dark Purple", accent="Pink", outline="White", font="White", background="Purple"},
+    ["Mint"] = {main="Dark Gray", accent="Green", outline="White", font="White", background="Dark Gray"},
+    ["Tokyo Night"] = {main="Dark Purple", accent="Violet", outline="Purple", font="White", background="Dark Purple"},
+    ["Ubuntu"] = {main="Dark Gray", accent="Orange", outline="White", font="White", background="Dark Gray"},
+    ["Quartz"] = {main="Dark Gray", accent="Cyan", outline="White", font="White", background="Black"},
+}
+
+local fontMap = {
+    Fantast = Enum.Font.Fantasy,
+    Goth = Enum.Font.Gotham,
+    Jura = Enum.Font.Gotham,
+    Roboto = Enum.Font.Gotham,
+    RobotoMono = Enum.Font.Code,
+    SourceSans = Enum.Font.SourceSans,
+}
+
+local function applyConfigVisuals()
+    local mainName = Values["Main Color Value"] or "Purple"
+    local accentName = Values["Accent Color Value"] or "Purple"
+    local outlineName = Values["Outline Color Value"] or "White"
+    local fontName = Values["Font Color Value"] or "White"
+    local bgName = Values["Background Color Value"] or "Dark Purple"
+
+    local mainColor = colorPresets[mainName] or ACCENT
+    local accentColor = colorPresets[accentName] or ACCENT
+    local outlineColor = colorPresets[outlineName] or Color3.new(1,1,1)
+    local fontColor = colorPresets[fontName] or TEXT
+    local bgColor = colorPresets[bgName] or BG
+
+    if Values["Main Color"] ~= false then
+        ACCENT = mainColor
+        PANEL = mainColor:Lerp(Color3.new(0,0,0), 0.55)
+        FIELD = mainColor:Lerp(Color3.new(0,0,0), 0.25)
+    end
+    if Values["Accent Color"] ~= false then
+        ACCENT = accentColor
+    end
+    if Values["Background Color"] ~= false then
+        BG = bgColor
+    end
+
+    window.BackgroundColor3 = BG
+    wStroke.Color = Values["Outline Color"] == false and Color3.new(1,1,1) or outlineColor
+    if bgDark then bgDark.BackgroundColor3 = BG:Lerp(Color3.new(0,0,0), 0.65) end
+    if logoBadge then
+        local stroke = logoBadge:FindFirstChildOfClass("UIStroke")
+        if stroke then stroke.Color = ACCENT end
+    end
+    if iconStroke then iconStroke.Color = outlineColor end
+
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.TextColor3 == TEXT or obj.TextColor3 == Color3.fromRGB(220,220,220) then
+                obj.TextColor3 = fontColor
+            end
         end
     end
 
-    local ok, encoded = pcall(function()
-        return nil
-    end)
-
-    if ok then
-        print("[Aletta] Config snapshot:", encoded)
-    else
-        warn("[Aletta] Config tidak dapat di-encode.")
+    local face = fontMap[Values["Font Face"] or "Roboto"] or Enum.Font.Gotham
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            obj.Font = face
+        end
     end
+
+    for _, obj in ipairs(cornerObjects) do
+        if obj and obj.Parent then
+            obj.CornerRadius = UDim.new(0, math.clamp(tonumber(Values["Corner Radius"]) or 10, 0, 20))
+        end
+    end
+
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("Frame") and obj.BackgroundColor3 == FIELD then
+            obj.BackgroundColor3 = FIELD
+        end
+    end
+end
+
+Hooks["Corner Radius"] = function(value)
+    Values["Corner Radius"] = math.clamp(tonumber(value) or 10, 0, 20)
+    applyConfigVisuals()
+end
+
+Hooks["Custom Cursor"] = function(on)
+    pcall(function()
+        UIS.MouseIconEnabled = not on
+    end)
+end
+
+Hooks["Lock GUI"] = function(on)
+    Values["Lock GUI"] = on == true
+end
+
+Hooks["Menu Bind"] = function(value)
+    Values["Menu Bind"] = typeof(value) == "EnumItem" and value or (Enum.KeyCode[tostring(value)] or Enum.KeyCode.RightShift)
+end
+
+local function themeValue(name)
+    return colorPresets[name] or ACCENT
+end
+
+for _, key in ipairs({"Background Color Value", "Main Color Value", "Accent Color Value", "Outline Color Value", "Font Color Value", "Font Face"}) do
+    Hooks[key] = function() applyConfigVisuals() end
+end
+
+Hooks["Theme List"] = function(theme)
+    local t = themePresets[theme]
+    if not t then return end
+    local map = {
+        ["Background Color Value"] = t.background,
+        ["Main Color Value"] = t.main,
+        ["Accent Color Value"] = t.accent,
+        ["Outline Color Value"] = t.outline,
+        ["Font Color Value"] = t.font,
+    }
+    for key, value in pairs(map) do
+        Values[key] = value
+        if Controls[key] and Controls[key].set then
+            Controls[key].set(value)
+        end
+    end
+    applyConfigVisuals()
+end
+
+local function configSnapshot()
+    local snapshot = {}
+    for key, value in pairs(Values) do
+        if typeof(value) == "EnumItem" then
+            snapshot[key] = value.Name
+        elseif type(value) ~= "table" then
+            snapshot[key] = value
+        end
+    end
+    return snapshot
+end
+
+local function applySnapshot(snapshot)
+    if type(snapshot) ~= "table" then return end
+    for key, value in pairs(snapshot) do
+        local control = Controls[key]
+        if control and control.set then
+            pcall(function() control.set(value) end)
+        else
+            Values[key] = value
+        end
+    end
+    applyConfigVisuals()
+end
+
+local function configNames()
+    local names = {}
+    for name in pairs(sessionConfigs) do table.insert(names, name) end
+    table.sort(names)
+    if #names == 0 then names[1] = "No Config" end
+    return names
+end
+
+local function refreshConfigDropdown(selected)
+    local list = configNames()
+    local current = selected or Values["Config List"]
+    if not sessionConfigs[current] and current ~= "No Config" then
+        current = list[1]
+    end
+    Values["Config List"] = current
+    local control = Controls["Config List"]
+    if control and control.setOptions then
+        control.setOptions(list, current)
+    elseif control and control.set then
+        control.set(current)
+    end
+    return list
+end
+
+Hooks["Create Config"] = function()
+    local name = tostring(Values["Config Name"] or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then
+        warn("[Aletta] Config Name masih kosong.")
+        return
+    end
+    sessionConfigs[name] = configSnapshot()
+    refreshConfigDropdown(name)
+    print("[Aletta] Config dibuat:", name)
+end
+
+Hooks["Load Config"] = function()
+    local name = Values["Config List"]
+    local snapshot = sessionConfigs[name]
+    if snapshot then
+        applySnapshot(snapshot)
+        print("[Aletta] Config dimuat:", name)
+    end
+end
+
+Hooks["Overwrite Config"] = function()
+    local name = Values["Config List"]
+    if not sessionConfigs[name] then return end
+    sessionConfigs[name] = configSnapshot()
+    print("[Aletta] Config ditimpa:", name)
+end
+
+Hooks["Delete Config"] = function()
+    local name = Values["Config List"]
+    if name and sessionConfigs[name] then
+        sessionConfigs[name] = nil
+        refreshConfigDropdown()
+        print("[Aletta] Config dihapus:", name)
+    end
+end
+
+Hooks["Refresh List"] = function()
+    refreshConfigDropdown()
+end
+
+Hooks["Set as Autoload"] = function()
+    local name = Values["Config List"]
+    if sessionConfigs[name] then
+        autoloadConfig = name
+        print("[Aletta] Autoload:", name)
+    end
+end
+
+Hooks["Reset Autoload"] = function()
+    autoloadConfig = nil
+    print("[Aletta] Autoload di-reset.")
+end
+
+Hooks["Save Config Now"] = function()
+    local name = tostring(Values["Config Name"] or "Session")
+    sessionConfigs[name] = configSnapshot()
+    print("[Aletta] Config snapshot disimpan di sesi:", name)
 end
 
 Hooks["Reset to Default"] = function()
     for name, default in pairs(Defaults) do
         local control = Controls[name]
-
         if control and control.set then
-            pcall(function()
-                control.set(default)
-            end)
+            pcall(function() control.set(default) end)
         else
             Values[name] = default
         end
     end
+    applyConfigVisuals()
 end
 
 Hooks["Delete Config File"] = function()
-    print("[Aletta] Tidak ada file lokal yang dihapus. Build ini tidak memakai filesystem exploit.")
+    print("[Aletta] Build ini tidak memakai filesystem exploit; gunakan Configuration untuk config sesi.")
 end
 
 -- =========================================================
@@ -2553,6 +2823,16 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
+    if Values["Open Keybind"] ~= false and input.KeyCode == (Values["Menu Bind"] or Enum.KeyCode.RightShift) then
+        if Values["Lock GUI"] == true then
+            -- Lock GUI only blocks dragging; menu bind still works.
+        end
+        window.Visible = not window.Visible
+        icon.Visible = not window.Visible
+        closePopup()
+        return
+    end
+
     for hotkeyName, featureName in pairs(hotkeyMap) do
         local key = Values[hotkeyName]
 
@@ -2608,3 +2888,6 @@ print("[Aletta Creator] Loaded successfully.")
 print("[Aletta Creator] GUI icon asset:", ICON_ID)
 print("[Aletta Creator] FeatureManager:Toggle fixed.")
 print("[Aletta Creator] No lock emoji is used.")
+
+-- Initial Config visuals
+pcall(applyConfigVisuals)
