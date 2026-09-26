@@ -689,7 +689,7 @@ local headerLogo = new("ImageLabel", {
     Image = HEADER_LOGO_ID,
     ScaleType = Enum.ScaleType.Fit,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(2, -5),
+    Position = UDim2.fromOffset(-18, -5),
     Size = UDim2.fromOffset(235, 58),
     ZIndex = 11
 }, top)
