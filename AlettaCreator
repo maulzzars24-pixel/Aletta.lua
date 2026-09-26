@@ -2569,6 +2569,200 @@ Hooks["Stop Emote"] = function()
 end
 
 -- =========================================================
+-- FINISH: HOOK SEMUA CONTROL YANG BELUM MEMILIKI HANDLER KHUSUS
+-- =========================================================
+-- Control yang sudah punya handler khusus tetap menggunakan handler tersebut.
+-- Handler fallback di bawah membuat semua control GUI tetap terhubung ke
+-- sistem Hook/FeatureManager tanpa mengarang payload RemoteEvent server.
+
+local genericHookWarned = {}
+
+local function setLocalFeatureState(name, value)
+    Values[name] = value
+
+    local h = humanoid()
+    if name == "Walk Speed" then
+        if value then
+            if h then h.WalkSpeed = tonumber(Values["Walk Speed Value"]) or 16 end
+        elseif h then
+            h.WalkSpeed = originalWalkSpeed
+        end
+    elseif name == "Walk Speed Value" then
+        if Values["Walk Speed"] and h then
+            h.WalkSpeed = tonumber(value) or 16
+        end
+    elseif name == "Infinite Jump" then
+        disconnectList(name)
+        if value then
+            FeatureManager:Connect(name, UIS.JumpRequest, function()
+                local current = humanoid()
+                if current then
+                    current:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end)
+        end
+    elseif name == "3rd Person Camera" then
+        camera = workspace.CurrentCamera or camera
+        if camera then
+            local mode = tostring(value or "Default")
+            if mode == "3rd Person" then
+                player.CameraMode = Enum.CameraMode.Classic
+                player.CameraMinZoomDistance = 5
+                player.CameraMaxZoomDistance = 20
+            elseif mode == "First Person" then
+                player.CameraMode = Enum.CameraMode.LockFirstPerson
+            else
+                player.CameraMode = Enum.CameraMode.Classic
+            end
+        end
+    elseif name == "Smooth HDR Graphics" then
+        local bloom = Lighting:FindFirstChild("AlettaBloom")
+        local cc = Lighting:FindFirstChild("AlettaColorCorrection")
+        if value then
+            if not bloom then
+                bloom = Instance.new("BloomEffect")
+                bloom.Name = "AlettaBloom"
+                bloom.Intensity = 0.25
+                bloom.Size = 24
+                bloom.Threshold = 1
+                bloom.Parent = Lighting
+            end
+            if not cc then
+                cc = Instance.new("ColorCorrectionEffect")
+                cc.Name = "AlettaColorCorrection"
+                cc.Contrast = 0.05
+                cc.Saturation = 0.05
+                cc.Parent = Lighting
+            end
+        else
+            if bloom then bloom:Destroy() end
+            if cc then cc:Destroy() end
+        end
+    elseif name == "Sky Changer" then
+        local cc = Lighting:FindFirstChild("AlettaSkyTint")
+        if value then
+            if not cc then
+                cc = Instance.new("ColorCorrectionEffect")
+                cc.Name = "AlettaSkyTint"
+                cc.TintColor = Color3.fromRGB(215, 190, 255)
+                cc.Saturation = 0.05
+                cc.Parent = Lighting
+            end
+        elseif cc then
+            cc:Destroy()
+        end
+    elseif name == "Fullbright Time" then
+        if Values["FullBright"] then
+            Lighting.ClockTime = tonumber(value) or 14
+        end
+    elseif name == "Jump Power" then
+        if Values["High Jump"] and h then
+            h.UseJumpPower = true
+            h.JumpPower = tonumber(value) or 50
+        end
+    elseif name == "Speed Boost Value" then
+        if Values["SpeedBoost"] and h then
+            h.WalkSpeed = tonumber(value) or h.WalkSpeed
+        end
+    elseif name == "Resolution Scale" then
+        -- Roblox não expõe resolusi layar asli dari LocalScript.
+        -- Gunakan UIScale pada GUI sebagai safe local approximation.
+        local scale = gui and gui:FindFirstChild("AlettaResolutionScale")
+        if Values["Custom Resolution"] then
+            if not scale then
+                scale = Instance.new("UIScale")
+                scale.Name = "AlettaResolutionScale"
+                scale.Parent = gui
+            end
+            scale.Scale = math.clamp(1 + (tonumber(value) or 0) * 0.1, 0.6, 1.4)
+        elseif scale then
+            scale:Destroy()
+        end
+    elseif name == "Custom Resolution" then
+        if not value then
+            local scale = gui and gui:FindFirstChild("AlettaResolutionScale")
+            if scale then scale:Destroy() end
+        else
+            setLocalFeatureState("Resolution Scale", Values["Resolution Scale"] or 0)
+        end
+    elseif name == "Infinite Zoom" then
+        player.CameraMaxZoomDistance = value and 1000 or 128
+    elseif name == "Open Keybind" then
+        -- Binding tetap diproses oleh handler Menu Bind.
+    elseif name == "Lock GUI" then
+        -- draggable() membaca Values["Lock GUI"] secara langsung.
+    elseif name == "Custom Cursor" then
+        -- Cursor custom bergantung asset cursor yang tersedia di experience.
+    end
+end
+
+-- Specific local hooks that were missing from earlier versions.
+Hooks["Walk Speed"] = function(on)
+    setLocalFeatureState("Walk Speed", on == true)
+end
+
+Hooks["Walk Speed Value"] = function(value)
+    setLocalFeatureState("Walk Speed Value", value)
+end
+
+Hooks["Infinite Jump"] = function(on)
+    setLocalFeatureState("Infinite Jump", on == true)
+end
+
+Hooks["3rd Person Camera"] = function(value)
+    setLocalFeatureState("3rd Person Camera", value)
+end
+
+Hooks["Smooth HDR Graphics"] = function(on)
+    setLocalFeatureState("Smooth HDR Graphics", on == true)
+end
+
+Hooks["Sky Changer"] = function(on)
+    setLocalFeatureState("Sky Changer", on == true)
+end
+
+Hooks["Fullbright Time"] = function(value)
+    setLocalFeatureState("Fullbright Time", value)
+end
+
+Hooks["Jump Power"] = function(value)
+    setLocalFeatureState("Jump Power", value)
+end
+
+Hooks["Speed Boost Value"] = function(value)
+    setLocalFeatureState("Speed Boost Value", value)
+end
+
+Hooks["Resolution Scale"] = function(value)
+    setLocalFeatureState("Resolution Scale", value)
+end
+
+Hooks["Custom Resolution"] = function(on)
+    setLocalFeatureState("Custom Resolution", on == true)
+end
+
+Hooks["Infinite Zoom"] = function(on)
+    setLocalFeatureState("Infinite Zoom", on == true)
+end
+
+-- Semua label lain yang belum memiliki hook khusus tetap masuk ke pipeline.
+-- Ini membuat toggle/input/dropdown/slider benar-benar tersambung ke Values,
+-- tanpa memalsukan keberhasilan RemoteEvent yang kontraknya belum diketahui.
+setmetatable(Hooks, {
+    __index = function(_, name)
+        return function(value)
+            Values[name] = value
+            setLocalFeatureState(name, value)
+
+            if not genericHookWarned[name] then
+                genericHookWarned[name] = true
+                print("[Aletta] Hook aktif: " .. tostring(name))
+            end
+        end
+    end
+})
+
+-- =========================================================
 -- ESP - MATCH ONLY
 -- =========================================================
 
