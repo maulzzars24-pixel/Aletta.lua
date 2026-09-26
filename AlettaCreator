@@ -15,6 +15,8 @@
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
@@ -627,6 +629,7 @@ local gui = new("ScreenGui", {
 local window = new("Frame", {
     Size = UDim2.fromOffset(480, 330),
     Position = UDim2.fromOffset(120, 80),
+    Visible = false,
     BackgroundColor3 = BG,
     BorderSizePixel = 0,
     ClipsDescendants = true
@@ -682,20 +685,37 @@ local headerLogo = new("ImageLabel", {
     Image = HEADER_LOGO_ID,
     ScaleType = Enum.ScaleType.Fit,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(10, 1),
-    Size = UDim2.fromOffset(230, 46),
+    Position = UDim2.fromOffset(6, 0),
+    Size = UDim2.fromOffset(170, 48),
     ZIndex = 11
+}, top)
+
+local headerTitle = new("TextLabel", {
+    Name = "AlettaCreatorTitle",
+    Text = "Aletta Creator",
+    Font = Enum.Font.GothamBlack,
+    TextSize = 18,
+    TextColor3 = Color3.fromRGB(235, 205, 255),
+    TextStrokeColor3 = Color3.fromRGB(70, 20, 120),
+    TextStrokeTransparency = 0.15,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(166, 4),
+    Size = UDim2.fromOffset(132, 36),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 12
 }, top)
 
 new("TextLabel", {
     Text = "Violence District - Fremium Edition",
     Font = Enum.Font.GothamBold,
-    TextSize = 12,
+    TextSize = 11,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(250, 0),
-    Size = UDim2.fromOffset(200, 40),
-    TextXAlignment = Enum.TextXAlignment.Left
+    Position = UDim2.fromOffset(300, 4),
+    Size = UDim2.fromOffset(142, 36),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextWrapped = true,
+    ZIndex = 12
 }, top)
 
 local minBtn = new("TextButton", {
@@ -1483,6 +1503,8 @@ local function draggable(handle, target, onTap)
     end)
 end
 
+local loadingGate = true
+
 local function minimize()
     closePopup()
     window.Visible = false
@@ -1496,6 +1518,7 @@ end
 
 minBtn.Activated:Connect(minimize)
 icon.Activated:Connect(function()
+    if loadingGate then return end
     if window.Visible then
         minimize()
     else
@@ -1569,9 +1592,26 @@ local function showLoadNotification()
     local loadSound = Instance.new("Sound")
     loadSound.Name = "AlettaLoadSound"
     loadSound.SoundId = LOAD_SOUND_ID
-    loadSound.Volume = 1
-    loadSound.Parent = notification
-    pcall(function() loadSound:Play() end)
+    loadSound.Volume = 2
+    loadSound.Parent = SoundService
+
+    task.spawn(function()
+        pcall(function()
+            ContentProvider:PreloadAsync({loadSound})
+        end)
+        pcall(function()
+            SoundService:PlayLocalSound(loadSound)
+        end)
+    end)
+
+    -- Panel baru muncul 2 detik setelah notifikasi tampil.
+    task.delay(2, function()
+        if window and window.Parent then
+            window.Visible = true
+            icon.Visible = true
+            loadingGate = false
+        end
+    end)
 
     task.delay(4, function()
         if notification and notification.Parent then
@@ -2117,14 +2157,18 @@ local function playTOFSound()
         tofSound = Instance.new("Sound")
         tofSound.Name = "AlettaTOFSound"
         tofSound.Volume = 1
-        tofSound.RollOffMaxDistance = 100
-        tofSound.Parent = playerGui
+        tofSound.Parent = SoundService
     end
 
     tofSound.SoundId = soundId
     tofSound.TimePosition = 0
-    pcall(function()
-        tofSound:Play()
+    task.spawn(function()
+        pcall(function()
+            ContentProvider:PreloadAsync({tofSound})
+        end)
+        pcall(function()
+            SoundService:PlayLocalSound(tofSound)
+        end)
     end)
 end
 
