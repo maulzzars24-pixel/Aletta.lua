@@ -180,93 +180,60 @@ local CONFIG = {
     {
         name = "Survivor",
         features = {
-            {name = "Feature Invisible", controls = {
-                T("Enable Invisible Shortcut"),
-                T("Invisible"),
-                I("Speed Boost Value", 48),
-                T("Enable Speed Boost Shortcut"),
-                T("Speed Boost"),
-                K("Speed Boost Hotkey", "Z")
-            }},
-            {name = "Moonwalk Mode", controls = {
-                T("Enable Moonwalk (Hold Hotkey/Button)"),
-                K("Moonwalk Hotkey", "X")
-            }},
-            {name = "Survival Utility", controls = {
-                T("No Fall Damage"),
-                T("Flee Killer (Auto TP Menjauh)"),
-                I("Flee Distance (studs)", 40),
-                T("Enable God Mode Shortcut"),
-                K("God Mode Hotkey", "G"),
-                T("Auto Crouch Abysswalker Slash"),
-                T("Auto Fast Vault"),
-                T("Enable Self Heal Shortcut"),
-                K("Self Heal Hotkey", "H")
-            }},
-            {name = "Auto Generator Rush", controls = {
-                T("Auto Gen Rush"),
-                I("Killer Escape Distance", 30)
-            }},
-            {name = "Bypass Generator [OP]", locked = true, controls = {
-                T("Bypass Generator")
-            }},
-            {name = "Auto Skillcheck Perfect", controls = {
-                D("Skillcheck Mode", {"Legit", "Instant"}, "Instant"),
-                T("Enable Auto Skillcheck Perfect")
-            }},
-            {name = "King's Scourge", locked = true, controls = {
-                T("King's Scourge")
-            }},
-            {name = "Fake Perks", controls = {
-                T("Fake Perfect Landing"),
-                T("Fake Time To Grow Up")
-            }},
-            {name = "Generator Info", controls = {
-                T("Show Generator Progression")
-            }},
-            {name = "Bypass Gate", controls = {
-                T("Bypass Gate"),
-                T("Enable Beat Game Shortcut"),
-                K("Beat Game Hotkey", "F4")
-            }},
-            {name = "Instant Teleport (Gate)", locked = true, controls = {
-                T("Instant Teleport (Gate)")
-            }},
-            {name = "Vault & Recovery", controls = {
-                T("Perfect Vault"),
-                T("Flowstate"),
-                S("Flowstate Cooldown", 0, 60, 20),
-                T("Quick Recovery"),
-                S("Quick Recovery Cooldown", 0, 60, 15)
-            }},
-            {name = "Skill Generator", controls = {
-                S("Skill Check Speed", 0, 30, 10)
-            }},
-            {name = "Camera Menu", controls = {
-                T("Custom FOV"),
-                S("Field of View", 0, 120, 70)
+            {name = "Escape & Pallet", controls = {
+                B("Auto Escape [1x Click]"),
+                B("Drop All Pallets [1x Click]"),
+                T("Anti Block Window", true),
+                T("Pallet Save Team", true),
+                T("Safe Mode", true),
+                S("Radius Pallet", 0, 24, 12)
             }},
             {name = "Auto Menu", controls = {
-                K("Self Progress Heal Hotkey", "H"),
                 T("Self Progress Heal"),
                 T("Auto Heal Team")
             }},
             {name = "Parry Menu", controls = {
-                K("Auto Parry V1 Hotkey", "Z"),
-                T("Auto Parry V1"),
-                K("Auto Parry V2 Hotkey", "X"),
-                T("Auto Parry V2"),
+                T("Auto Parry"),
                 T("Fake Parry (Keybind R)"),
                 T("Safety Parry"),
-                T("Aggressive Parry V1"),
+                T("Aggressive Parry"),
                 T("ESP Range"),
-                S("Parry Radius", 0, 25, 15),
-                S("Face Sensitivity", 0, 10, 7),
-                D("Ignore Skills", {"---"}, "---")
+                S("Parry Radius", 0, 26, 13),
+                S("Face Sensitivity", 0, 11, 5),
+                T("Ignore Skills - Hidden S1"),
+                T("Ignore Skills - Abyssal S1")
             }},
             {name = "Flee Menu", controls = {
                 T("Flee Killer"),
-                S("Jarak Auto Flee", 0, 100, 30)
+                S("Jarak Auto Flee", 0, 120, 60),
+                T("Auto Sprint (Mobile)"),
+                T("Auto Skill Check"),
+                D("Mode", {"Legit", "Instant", "Skip", "Normal", "Perfection"}, "Legit"),
+                T("Anti Fail Gene"),
+                B("Instant Teleport"),
+                T("Auto Crouch Dodge"),
+                T("Auto Bandage"),
+                T("Auto Crouch Veil"),
+                T("Anti Slow")
+            }},
+            {name = "Perks Mod", controls = {
+                D("Perks Mod", {"Default"}, "Default"),
+                T("SpeedBoost"),
+                S("Speed Boost Value", 0, 24, 12)
+            }},
+            {name = "Vault Mod", controls = {
+                T("Perfect Vault"),
+                T("Flowstate"),
+                S("Flowstate Cooldown", 0, 55, 27),
+                T("Quick Recovery"),
+                S("Quick Recovery Cooldown", 40, 300, 170)
+            }},
+            {name = "Skill Generator", controls = {
+                S("Skill Check Speed", 0, 28, 14)
+            }},
+            {name = "Camera Menu", controls = {
+                T("Custom FOV"),
+                S("Field of View", 0, 160, 70)
             }}
         }
     },
