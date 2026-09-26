@@ -47,6 +47,7 @@ local TEXT = Color3.fromRGB(255, 255, 255)
 local BACKGROUND_ID = "rbxassetid://114593611204629"
 local LOGO_ID = "rbxassetid://79108447755192"
 local HEADER_LOGO_ID = "rbxassetid://122038427201250"
+local LOAD_SOUND_ID = "rbxassetid://83169454697282"
 local ICON_ID = LOGO_ID
 
 -- Hapus GUI lama jika script dijalankan ulang.
@@ -424,7 +425,7 @@ local CONFIG = {
                 S("Prediction", 0, 50, 35),
                 S("Aim Offset", -10, 10, -1),
                 T("Sound TOF"),
-                D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3"}, "Sound 1"),
+                D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3", "Sound 4", "Sound 5"}, "Sound 1"),
                 D("Target Aim", {"Head", "Torso", "Legs"}, "Torso"),
                 D("Pistol Target", {"Killer", "Survivor", "Zombie"}, "Killer")
             }},
@@ -671,7 +672,7 @@ local bgDark = new("Frame", {
 corner(bgDark, 10)
 
 local top = new("Frame", {
-    Size = UDim2.new(1, 0, 0, 40),
+    Size = UDim2.new(1, 0, 0, 48),
     BackgroundTransparency = 1,
     ZIndex = 10
 }, window)
@@ -681,8 +682,8 @@ local headerLogo = new("ImageLabel", {
     Image = HEADER_LOGO_ID,
     ScaleType = Enum.ScaleType.Fit,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(12, 5),
-    Size = UDim2.fromOffset(155, 30),
+    Position = UDim2.fromOffset(10, 1),
+    Size = UDim2.fromOffset(230, 46),
     ZIndex = 11
 }, top)
 
@@ -692,8 +693,8 @@ new("TextLabel", {
     TextSize = 12,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(210, 0),
-    Size = UDim2.fromOffset(250, 40),
+    Position = UDim2.fromOffset(250, 0),
+    Size = UDim2.fromOffset(200, 40),
     TextXAlignment = Enum.TextXAlignment.Left
 }, top)
 
@@ -1507,6 +1508,83 @@ draggable(top, window)
 draggable(icon, icon)
 
 -- =========================================================
+-- LOAD NOTIFICATION
+-- =========================================================
+
+local function showLoadNotification()
+    local notification = new("Frame", {
+        Name = "AlettaLoadNotification",
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 78),
+        Size = UDim2.fromOffset(420, 112),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 12),
+        BackgroundTransparency = 0.14,
+        BorderSizePixel = 0,
+        ZIndex = 300,
+    }, gui)
+    corner(notification, 8)
+
+    new("UIStroke", {
+        Color = ACCENT,
+        Thickness = 1.5,
+        Transparency = 0.35,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Sukses",
+        Font = Enum.Font.GothamBold,
+        TextSize = 24,
+        TextColor3 = TEXT,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(12, 10),
+        Size = UDim2.new(1, -24, 0, 30),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Berhasil memuat script untuk: [CURE]",
+        Font = Enum.Font.Gotham,
+        TextSize = 16,
+        TextColor3 = TEXT,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(12, 43),
+        Size = UDim2.new(1, -24, 0, 26),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Distrik Kekerasan",
+        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        TextColor3 = GRAY,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(12, 70),
+        Size = UDim2.new(1, -24, 0, 24),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    local loadSound = Instance.new("Sound")
+    loadSound.Name = "AlettaLoadSound"
+    loadSound.SoundId = LOAD_SOUND_ID
+    loadSound.Volume = 1
+    loadSound.Parent = notification
+    pcall(function() loadSound:Play() end)
+
+    task.delay(4, function()
+        if notification and notification.Parent then
+            local tween = TweenService:Create(notification, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+            tween:Play()
+            task.delay(0.3, function()
+                if notification and notification.Parent then notification:Destroy() end
+            end)
+        end
+    end)
+end
+
+-- =========================================================
 -- LOCAL TEST FEATURES
 -- =========================================================
 
@@ -2015,6 +2093,55 @@ end
 
 function AimLock.Clear()
     AimLock.target = nil
+end
+
+-- =========================================================
+-- TOF SOUND SET
+-- =========================================================
+
+local TOF_SOUND_IDS = {
+    ["Sound 1"] = "rbxassetid://139664063118995",
+    ["Sound 2"] = "rbxassetid://115463636107842",
+    ["Sound 3"] = "rbxassetid://133644366455575",
+    ["Sound 4"] = "rbxassetid://114932123071822",
+    ["Sound 5"] = "rbxassetid://83971611350325",
+}
+
+local tofSound
+
+local function playTOFSound()
+    local selected = Values["Pilih Sound"] or "Sound 1"
+    local soundId = TOF_SOUND_IDS[selected] or TOF_SOUND_IDS["Sound 1"]
+
+    if not tofSound or not tofSound.Parent then
+        tofSound = Instance.new("Sound")
+        tofSound.Name = "AlettaTOFSound"
+        tofSound.Volume = 1
+        tofSound.RollOffMaxDistance = 100
+        tofSound.Parent = playerGui
+    end
+
+    tofSound.SoundId = soundId
+    tofSound.TimePosition = 0
+    pcall(function()
+        tofSound:Play()
+    end)
+end
+
+Hooks["Pilih Sound"] = function(value)
+    Values["Pilih Sound"] = tostring(value or "Sound 1")
+    if Values["Sound TOF"] then
+        playTOFSound()
+    end
+end
+
+Hooks["Sound TOF"] = function(on)
+    Values["Sound TOF"] = on == true
+    if Values["Sound TOF"] then
+        playTOFSound()
+    elseif tofSound then
+        pcall(function() tofSound:Stop() end)
+    end
 end
 
 -- =========================================================
@@ -3027,3 +3154,6 @@ print("[Aletta Creator] No lock emoji is used.")
 
 -- Initial Config visuals
 pcall(applyConfigVisuals)
+
+-- Tampilkan notifikasi saat script selesai dimuat.
+task.defer(showLoadNotification)
