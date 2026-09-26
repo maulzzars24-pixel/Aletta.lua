@@ -685,8 +685,8 @@ local headerLogo = new("ImageLabel", {
     Image = HEADER_LOGO_ID,
     ScaleType = Enum.ScaleType.Fit,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(6, 0),
-    Size = UDim2.fromOffset(170, 48),
+    Position = UDim2.fromOffset(2, -5),
+    Size = UDim2.fromOffset(235, 58),
     ZIndex = 11
 }, top)
 
@@ -699,8 +699,8 @@ local headerTitle = new("TextLabel", {
     TextStrokeColor3 = Color3.fromRGB(70, 20, 120),
     TextStrokeTransparency = 0.15,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(166, 4),
-    Size = UDim2.fromOffset(132, 36),
+    Position = UDim2.fromOffset(205, 7),
+    Size = UDim2.fromOffset(120, 34),
     TextXAlignment = Enum.TextXAlignment.Left,
     ZIndex = 12
 }, top)
@@ -711,8 +711,8 @@ new("TextLabel", {
     TextSize = 11,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(300, 4),
-    Size = UDim2.fromOffset(142, 36),
+    Position = UDim2.fromOffset(320, 7),
+    Size = UDim2.fromOffset(125, 34),
     TextXAlignment = Enum.TextXAlignment.Left,
     TextWrapped = true,
     ZIndex = 12
@@ -765,7 +765,7 @@ corner(search, 6)
 local title = new("TextLabel", {
     Text = "",
     Font = Enum.Font.GothamBold,
-    TextSize = 16,
+    TextSize = 11,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
     Position = UDim2.fromOffset(172, 48),
@@ -1319,7 +1319,7 @@ local function makeRow(page, feature)
     local head = new("TextButton", {
         Text = "   " .. feature.name,
         Font = Enum.Font.GothamBold,
-        TextSize = 14,
+        TextSize = 10,
         TextColor3 = TEXT,
         TextXAlignment = Enum.TextXAlignment.Left,
         BackgroundTransparency = 1,
@@ -1537,9 +1537,9 @@ draggable(icon, icon)
 local function showLoadNotification()
     local notification = new("Frame", {
         Name = "AlettaLoadNotification",
-        AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 78),
-        Size = UDim2.fromOffset(420, 112),
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -18, 1, -18),
+        Size = UDim2.fromOffset(250, 78),
         BackgroundColor3 = Color3.fromRGB(10, 10, 12),
         BackgroundTransparency = 0.14,
         BorderSizePixel = 0,
@@ -1556,11 +1556,11 @@ local function showLoadNotification()
     new("TextLabel", {
         Text = "Sukses",
         Font = Enum.Font.GothamBold,
-        TextSize = 24,
+        TextSize = 17,
         TextColor3 = TEXT,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(12, 10),
-        Size = UDim2.new(1, -24, 0, 30),
+        Position = UDim2.fromOffset(8, 7),
+        Size = UDim2.new(1, -16, 0, 22),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 301,
     }, notification)
@@ -1568,11 +1568,11 @@ local function showLoadNotification()
     new("TextLabel", {
         Text = "Berhasil memuat script untuk: [CURE]",
         Font = Enum.Font.Gotham,
-        TextSize = 16,
+        TextSize = 11,
         TextColor3 = TEXT,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(12, 43),
-        Size = UDim2.new(1, -24, 0, 26),
+        Position = UDim2.fromOffset(8, 30),
+        Size = UDim2.new(1, -16, 0, 20),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 301,
     }, notification)
@@ -1580,11 +1580,11 @@ local function showLoadNotification()
     new("TextLabel", {
         Text = "Distrik Kekerasan",
         Font = Enum.Font.Gotham,
-        TextSize = 14,
+        TextSize = 10,
         TextColor3 = GRAY,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(12, 70),
-        Size = UDim2.new(1, -24, 0, 24),
+        Position = UDim2.fromOffset(8, 51),
+        Size = UDim2.new(1, -16, 0, 18),
         TextXAlignment = Enum.TextXAlignment.Center,
         ZIndex = 301,
     }, notification)
@@ -1592,16 +1592,18 @@ local function showLoadNotification()
     local loadSound = Instance.new("Sound")
     loadSound.Name = "AlettaLoadSound"
     loadSound.SoundId = LOAD_SOUND_ID
-    loadSound.Volume = 2
+    loadSound.Volume = 1
     loadSound.Parent = SoundService
 
     task.spawn(function()
-        pcall(function()
+        local ok = pcall(function()
             ContentProvider:PreloadAsync({loadSound})
         end)
-        pcall(function()
-            SoundService:PlayLocalSound(loadSound)
-        end)
+        if loadSound.Parent then
+            pcall(function()
+                loadSound:Play()
+            end)
+        end
     end)
 
     -- Panel baru muncul 2 detik setelah notifikasi tampil.
@@ -2167,7 +2169,7 @@ local function playTOFSound()
             ContentProvider:PreloadAsync({tofSound})
         end)
         pcall(function()
-            SoundService:PlayLocalSound(tofSound)
+            tofSound:Play()
         end)
     end)
 end
