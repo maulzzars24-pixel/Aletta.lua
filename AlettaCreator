@@ -250,6 +250,32 @@ local CONFIG = {
     {
         name = "Killer",
         features = {
+            {name = "Killer Movement", controls = {
+                T("Walk Speed"),
+                S("Walk Speed Value", 0, 320, 160)
+            }},
+            {name = "Attack Menu", controls = {
+                D("Attack Mode", {"Basic Attack", "Lunge"}, "Basic Attack"),
+                T("One Hit"),
+                T("Show Range"),
+                S("Hit Radius", 0, 16, 8),
+                S("Hit Delay", 0, 450, 225),
+                T("Auto Aim Hidden")
+            }},
+            {name = "Skill Killer", controls = {
+                T("Counter Parry"),
+                T("Infinite Lunge"),
+                T("Anti Blind"),
+                T("Infinite Corrupt Abyssal"),
+                T("Block Windows/Pallet"),
+                T("Bypass Skill Gendong"),
+                T("No Cooldown Stalker/Hidden")
+            }},
+            {name = "Skill Menu", controls = {
+                S("Break Speed", 0, 11, 5),
+                D("3rd Person Camera", {"Default", "3rd Person", "First Person"}, "Default"),
+                D("Ganti Topeng Masked", {"Default", "Mask 1", "Mask 2", "Mask 3", "Mask 4"}, "Default")
+            }},
             {name = "Auto Hook", controls = {T("Enable Auto Hook")}},
             {name = "Kill All Instant", controls = {T("Kill All (Risk Ban)")}},
             {name = "Auto Attack", controls = {
