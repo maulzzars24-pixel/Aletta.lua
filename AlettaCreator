@@ -1,4 +1,4 @@
---// Aletta Creator GUI - Clean Developer/Test Edition
+--// Aletta Creator GUI - Fremium Edition
 --// Single LocalScript
 --// Dibersihkan dari:
 --// 1. FeatureManager:Toggle yang belum ada
@@ -18,7 +18,6 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
 
 local player = Players.LocalPlayer
@@ -46,6 +45,7 @@ local TEXT = Color3.fromRGB(255, 255, 255)
 -- Asset gambar tombol buka/tutup GUI.
 local BACKGROUND_ID = "rbxassetid://114593611204629"
 local LOGO_ID = "rbxassetid://79108447755192"
+local ICON_ID = LOGO_ID
 
 -- Hapus GUI lama jika script dijalankan ulang.
 for _, name in ipairs({"AlettaCreatorGUI", "AlettaCrosshair", "AlettaESPLabels", "AlettaMWIndicator"}) do
@@ -323,11 +323,6 @@ local CONFIG = {
             {name = "Auto Farm", locked = true, controls = {
                 T("Enable Auto Farm")
             }},
-            {name = "Discord Webhook", controls = {
-                T("Enable Discord Webhook"),
-                I("Webhook URL (1 Hour/Log)", "", "Enter Value"),
-                B("Test Webhook")
-            }}
         }
     },
 
@@ -652,19 +647,19 @@ new("TextLabel", {
     TextSize = 18,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(14, 0),
-    Size = UDim2.fromOffset(150, 40),
+    Position = UDim2.fromOffset(64, 0),
+    Size = UDim2.fromOffset(145, 40),
     TextXAlignment = Enum.TextXAlignment.Left
 }, top)
 
 new("TextLabel", {
-    Text = "Violence District - Developer Test",
+    Text = "Violence District - Fremium Edition",
     Font = Enum.Font.GothamBold,
     TextSize = 12,
     TextColor3 = TEXT,
     BackgroundTransparency = 1,
-    Position = UDim2.fromOffset(175, 0),
-    Size = UDim2.fromOffset(230, 40),
+    Position = UDim2.fromOffset(215, 0),
+    Size = UDim2.fromOffset(250, 40),
     TextXAlignment = Enum.TextXAlignment.Left
 }, top)
 
@@ -1915,7 +1910,7 @@ Hooks["Save Config Now"] = function()
     end
 
     local ok, encoded = pcall(function()
-        return HttpService:JSONEncode(snapshot)
+        return nil
     end)
 
     if ok then
