@@ -680,6 +680,7 @@ local logoBadge = new("ImageLabel", {
     Position = UDim2.fromOffset(10, 4),
     ImageTransparency = 0,
     Active = false,
+    Visible = false,
     ZIndex = 8
 }, window)
 corner(logoBadge, 24)
@@ -1429,28 +1430,56 @@ end)
 -- =========================================================
 
 local icon = new("ImageButton", {
-    Image = "rbxassetid://111827431469508",
-    ScaleType = Enum.ScaleType.Crop,
-    BackgroundColor3 = Color3.fromRGB(20, 10, 35),
-    Size = UDim2.fromOffset(58, 58),
-    Position = window.Position,
-    Visible = false,
-    AutoButtonColor = false
+    Name = "AlettaFloatingLogo",
+    Image = LOGO_ID,
+    ScaleType = Enum.ScaleType.Fit,
+    BackgroundColor3 = Color3.fromRGB(18, 8, 32),
+    BackgroundTransparency = 0,
+    Size = UDim2.fromOffset(48, 48),
+    Position = UDim2.fromOffset(18, 120),
+    Visible = true,
+    Active = true,
+    AutoButtonColor = false,
+    ZIndex = 100
 }, gui)
-corner(icon, 29)
+corner(icon, 24)
 
 local iconStroke = new("UIStroke", {
-    Color = Color3.new(1, 1, 1),
-    Thickness = 3
+    Color = ACCENT,
+    Thickness = 2.5
 }, icon)
 
-local iconGrad = new("UIGradient", {
+new("UIGradient", {
     Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(110, 50, 255)),
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 110, 255)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 40, 200))
-    })
+    }),
+    Rotation = 45
 }, iconStroke)
+
+-- Fallback kecil jika asset logo gagal dimuat Roblox.
+local iconFallback = new("TextLabel", {
+    Name = "LogoFallback",
+    Text = "A",
+    Font = Enum.Font.GothamBlack,
+    TextSize = 24,
+    TextColor3 = Color3.fromRGB(255, 255, 255),
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(1, 1),
+    ZIndex = 101
+}, icon)
+
+local logoLoaded = false
+icon:GetPropertyChangedSignal("IsLoaded"):Connect(function()
+    logoLoaded = icon.IsLoaded
+    iconFallback.Visible = not logoLoaded
+end)
+pcall(function()
+    logoLoaded = icon.IsLoaded
+    iconFallback.Visible = not logoLoaded
+end)
+
 
 local function draggable(handle, target, onTap)
     local dragging = false
@@ -1498,15 +1527,13 @@ end
 
 local function minimize()
     closePopup()
-    icon.Position = window.Position
     window.Visible = false
     icon.Visible = true
 end
 
 local function restore()
-    window.Position = icon.Position
-    icon.Visible = false
     window.Visible = true
+    icon.Visible = true
 end
 
 minBtn.Activated:Connect(minimize)
@@ -2972,7 +2999,7 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
             -- Lock GUI only blocks dragging; menu bind still works.
         end
         window.Visible = not window.Visible
-        icon.Visible = not window.Visible
+        icon.Visible = true
         closePopup()
         return
     end
