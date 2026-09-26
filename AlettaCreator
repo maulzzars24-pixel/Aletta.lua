@@ -348,12 +348,15 @@ local CONFIG = {
                 T("ESP Generator", true),
                 T("ESP Gate"),
                 T("ESP Hook"),
-                T("ESP Pallet")
+                T("ESP Pallet"),
+                T("ESP Window / Vault", true)
             }},
             {name = "ESP Settings", controls = {
                 T("Show Name"),
                 T("Show Distance"),
-                T("Show Health")
+                T("Show Health"),
+                S("ESP Distance", 0, 600, 600),
+                S("ESP Transparency", 0, 11, 2)
             }},
             {name = "Custom ESP Colors", controls = {
                 C("Survivor Color", "Survivor"),
@@ -362,7 +365,8 @@ local CONFIG = {
                 C("Generator Color", "Generator"),
                 C("Gate Color", "Gate"),
                 C("Hook Color", "Hook"),
-                C("Pallet Color", "Pallet")
+                C("Pallet Color", "Pallet"),
+                TC("Window / Vault Color", "Blue")
             }},
             {name = "ESP Display", controls = {
                 T("Show Next Map", true),
@@ -2565,7 +2569,7 @@ Hooks["Stop Emote"] = function()
 end
 
 -- =========================================================
--- ESP
+-- ESP - MATCH ONLY
 -- =========================================================
 
 espFolder = Instance.new("Folder")
@@ -2578,6 +2582,73 @@ espGui.ResetOnSpawn = false
 espGui.IgnoreGuiInset = true
 espGui.Parent = playerGui
 
+-- ESP sengaja tidak aktif di lobby/intermission.
+-- Game.VD menyediakan BindableEvent Start/endgame/RoundEnd yang dipakai
+-- sebagai sinyal match. Jika script dimuat di tengah match, heuristic
+-- di bawah mencari Role yang benar-benar diberikan ke player + object map.
+local espMatchActive = false
+local espMatchConnections = {}
+local espLastKnownState = false
+local espWaitingForStart = false
+local clearESP
+local rebuildESP
+local heuristicCacheTime = 0
+local heuristicCacheResult = false
+
+local function disconnectESPMatchSignals()
+    for _, connection in ipairs(espMatchConnections) do
+        pcall(function() connection:Disconnect() end)
+    end
+    table.clear(espMatchConnections)
+end
+
+local function setESPMatchActive(active)
+    active = active == true
+    espMatchActive = active
+    espLastKnownState = active
+    espWaitingForStart = not active
+    if not active and clearESP then
+        clearESP()
+    elseif active and Values["Enable ESP"] and rebuildESP then
+        task.defer(rebuildESP)
+    end
+end
+
+local function findGameFolder()
+    local replicated = game:GetService("ReplicatedStorage")
+    local remotes = replicated:FindFirstChild("Remotes")
+    if not remotes then return nil end
+    return remotes:FindFirstChild("Game")
+end
+
+local function bindMatchSignals()
+    disconnectESPMatchSignals()
+    local gameFolder = findGameFolder()
+    if not gameFolder then return end
+
+    local startEvent = gameFolder:FindFirstChild("Start")
+    local endEvent = gameFolder:FindFirstChild("endgame")
+    local roundEndEvent = gameFolder:FindFirstChild("RoundEndEvent")
+    local roundEnd = gameFolder:FindFirstChild("RoundEnd")
+    local endScreen = gameFolder:FindFirstChild("EndScreenEvent")
+
+    if startEvent and startEvent:IsA("BindableEvent") then
+        table.insert(espMatchConnections, startEvent.Event:Connect(function()
+            setESPMatchActive(true)
+        end))
+    end
+
+    for _, event in ipairs({endEvent, roundEndEvent, roundEnd, endScreen}) do
+        if event and event:IsA("BindableEvent") then
+            table.insert(espMatchConnections, event.Event:Connect(function()
+                setESPMatchActive(false)
+            end))
+        end
+    end
+end
+
+bindMatchSignals()
+
 local espColorMap = {
     Survivor = Color3.fromRGB(70, 220, 255),
     Killer = Color3.fromRGB(255, 80, 80),
@@ -2585,10 +2656,11 @@ local espColorMap = {
     Generator = Color3.fromRGB(255, 235, 50),
     Gate = Color3.fromRGB(255, 190, 50),
     Hook = Color3.fromRGB(255, 90, 130),
-    Pallet = Color3.fromRGB(255, 150, 50)
+    Pallet = Color3.fromRGB(255, 150, 50),
+    Window = Color3.fromRGB(80, 150, 255)
 }
 
-local function clearESP()
+clearESP = function()
     if espFolder then
         for _, object in ipairs(espFolder:GetChildren()) do
             object:Destroy()
@@ -2602,13 +2674,83 @@ local function clearESP()
     end
 end
 
-local function roleOf(targetPlayer)
+local function hasMatchRole(targetPlayer)
     local c = targetPlayer.Character
-
     local role = (c and c:GetAttribute("Role"))
         or targetPlayer:GetAttribute("Role")
 
-    return role and tostring(role) or "Survivor"
+    if role == nil then return false end
+    role = tostring(role)
+    return role == "Killer"
+        or role == "Survivor"
+        or role == "Zombie"
+        or role == "Zombie Dummy"
+        or role == "SCP"
+end
+
+local function matchHeuristic()
+    if espWaitingForStart then return false end
+
+    -- Cache heuristic supaya tidak melakukan GetDescendants() setiap frame.
+    local now = os.clock()
+    if now - heuristicCacheTime < 2 then
+        return heuristicCacheResult
+    end
+    heuristicCacheTime = now
+
+    -- Jangan pernah mengaktifkan ESP hanya karena ada nama Gate/Pallet
+    -- di lobby. Player harus memiliki Role match + object map aktif.
+    local roleCount = 0
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= player and hasMatchRole(targetPlayer) then
+            roleCount += 1
+        end
+    end
+
+    if roleCount == 0 then
+        heuristicCacheResult = false
+        return false
+    end
+
+    local generatorCount = 0
+    local palletCount = 0
+    local windowCount = 0
+
+    for _, object in ipairs(workspace:GetDescendants()) do
+        local name = object.Name:lower()
+        if name:find("generator") then generatorCount += 1 end
+        if name:find("pallet") then palletCount += 1 end
+        if name:find("window") or name:find("vault") then windowCount += 1 end
+
+        if generatorCount >= 1 and (palletCount >= 1 or windowCount >= 1) then
+            heuristicCacheResult = true
+            return true
+        end
+    end
+
+    heuristicCacheResult = false
+    return false
+end
+
+local function isMatchESPAllowed()
+    if espMatchActive then return true end
+
+    -- Saat script baru dijalankan di tengah match, event Start mungkin sudah lewat.
+    if not espLastKnownState and matchHeuristic() then
+        espMatchActive = true
+        return true
+    end
+
+    return false
+end
+
+local function roleOf(targetPlayer)
+    local c = targetPlayer.Character
+    local role = (c and c:GetAttribute("Role"))
+        or targetPlayer:GetAttribute("Role")
+
+    -- Tidak lagi menganggap semua player lobby sebagai Survivor.
+    return role and tostring(role) or nil
 end
 
 local function espColor(role)
@@ -2632,22 +2774,38 @@ local function espColor(role)
         Cyan = Color3.fromRGB(60, 220, 255),
         Yellow = Color3.fromRGB(255, 220, 50),
         Orange = Color3.fromRGB(255, 150, 50),
-        White = TEXT
+        White = TEXT,
+        Pink = Color3.fromRGB(255, 100, 200)
     }
 
     return map[custom] or espColorMap[role] or ACCENT
 end
 
+local function distanceAllowed(part)
+    local myRoot = root()
+    if not myRoot or not part then return true end
+    local maxDistance = tonumber(Values["ESP Distance"]) or 600
+    if maxDistance <= 0 then return true end
+    return (myRoot.Position - part.Position).Magnitude <= maxDistance
+end
+
+local function espTransparency()
+    local value = tonumber(Values["ESP Transparency"]) or 2
+    return math.clamp(value / 11, 0, 1)
+end
+
 local function addCharacterESP(targetPlayer)
+    if not isMatchESPAllowed() then return end
     if targetPlayer == player then return end
 
     local c = targetPlayer.Character
     local h = c and c:FindFirstChildOfClass("Humanoid")
     local targetRoot = c and c:FindFirstChild("HumanoidRootPart")
-
-    if not c or not h or not targetRoot or h.Health <= 0 then return end
-
     local role = roleOf(targetPlayer)
+
+    -- Player lobby tanpa Role tidak boleh muncul.
+    if not c or not h or not targetRoot or h.Health <= 0 or not role then return end
+    if not distanceAllowed(targetRoot) then return end
 
     if role == "Killer" and not Values["ESP Killer"] then return end
     if role == "Survivor" and not Values["ESP Survivor"] then return end
@@ -2657,10 +2815,11 @@ local function addCharacterESP(targetPlayer)
     end
 
     local color = espColor(role)
+    local transparency = espTransparency()
 
     local highlight = Instance.new("Highlight")
     highlight.Adornee = c
-    highlight.FillTransparency = 0.82
+    highlight.FillTransparency = math.max(0.82, transparency)
     highlight.OutlineTransparency = 0
     highlight.OutlineColor = color
     highlight.FillColor = color
@@ -2675,7 +2834,7 @@ local function addCharacterESP(targetPlayer)
         billboard.Size = UDim2.fromOffset(180, 45)
         billboard.StudsOffset = Vector3.new(0, 3, 0)
         billboard.AlwaysOnTop = true
-        billboard.Parent = espFolder
+        billboard.Parent = espGui
 
         local text = Instance.new("TextLabel")
         text.BackgroundTransparency = 1
@@ -2687,30 +2846,19 @@ local function addCharacterESP(targetPlayer)
         text.Parent = billboard
 
         local parts = {}
-
-        if Values["Show Name"] then
-            table.insert(parts, targetPlayer.Name)
-        end
-
+        if Values["Show Name"] then table.insert(parts, targetPlayer.Name) end
         if Values["Show Health"] then
             table.insert(parts, "[" .. math.floor(h.Health) .. " HP]")
         end
-
         if Values["Show Distance"] then
             local myRoot = root()
-
             if myRoot then
-                table.insert(
-                    parts,
-                    "[" .. math.floor(
-                        (myRoot.Position - targetRoot.Position).Magnitude
-                    ) .. " M]"
-                )
+                table.insert(parts, "[" .. math.floor(
+                    (myRoot.Position - targetRoot.Position).Magnitude
+                ) .. " M]")
             end
         end
-
         text.Text = table.concat(parts, " ")
-        billboard.Parent = espGui
     end
 end
 
@@ -2725,22 +2873,36 @@ local function objectKind(object)
         return "Hook"
     elseif name:find("pallet") then
         return "Pallet"
+    elseif name:find("window") or name:find("vault") then
+        return "Window"
     end
 
     return nil
 end
 
-local function addObjectESP(object, kind)
+local function gateDisplayName(object)
+    local name = object.Name:lower()
+    if name:find("gate%s*1") or name:find("gate_1") or name:find("gate%-1") then
+        return "Gate 1"
+    elseif name:find("gate%s*2") or name:find("gate_2") or name:find("gate%-2") then
+        return "Gate 2"
+    end
+    return "Gate"
+end
+
+local function addObjectESP(object, kind, gateIndex)
+    if not isMatchESPAllowed() then return end
+
     if kind == "Generator" and not Values["ESP Generator"] then return end
     if kind == "Gate" and not Values["ESP Gate"] then return end
     if kind == "Hook" and not Values["ESP Hook"] then return end
     if kind == "Pallet" and not Values["ESP Pallet"] then return end
+    if kind == "Window" and not Values["ESP Window / Vault"] then return end
 
     local part = object:IsA("BasePart")
         and object
         or object:FindFirstChildWhichIsA("BasePart", true)
-
-    if not part then return end
+    if not part or not distanceAllowed(part) then return end
 
     local map = {
         Purple = ACCENT,
@@ -2754,11 +2916,16 @@ local function addObjectESP(object, kind)
         Pink = Color3.fromRGB(255, 100, 200)
     }
 
-    local color = map[Values[kind .. " Color"]] or espColorMap[kind]
+    local customKey = kind == "Window"
+        and "Window / Vault Color"
+        or (kind .. " Color")
+    local color = map[Values[customKey]] or espColorMap[kind] or ACCENT
+    local transparency = espTransparency()
 
     local highlight = Instance.new("Highlight")
     highlight.Adornee = object
-    highlight.FillTransparency = 0.88
+    highlight.FillTransparency = math.max(0.82, transparency)
+    highlight.OutlineTransparency = 0
     highlight.OutlineColor = color
     highlight.FillColor = color
     highlight.Parent = espFolder
@@ -2766,10 +2933,10 @@ local function addObjectESP(object, kind)
     if Values["Show Name"] or Values["Show Distance"] then
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = part
-        billboard.Size = UDim2.fromOffset(150, 30)
+        billboard.Size = UDim2.fromOffset(170, 30)
         billboard.StudsOffset = Vector3.new(0, 2.5, 0)
         billboard.AlwaysOnTop = true
-        billboard.Parent = espFolder
+        billboard.Parent = espGui
 
         local text = Instance.new("TextLabel")
         text.BackgroundTransparency = 1
@@ -2780,48 +2947,66 @@ local function addObjectESP(object, kind)
         text.TextStrokeTransparency = 0.2
         text.Parent = billboard
 
-        local displayText = Values["Show Name"] and object.Name or kind
-        local myRoot = root()
+        local displayText
+        if kind == "Gate" then
+            displayText = gateDisplayName(object)
+            if displayText == "Gate" and gateIndex then
+                displayText = "Gate " .. tostring(gateIndex)
+            end
+        elseif kind == "Window" then
+            displayText = "Window / Vault"
+        else
+            displayText = object.Name
+        end
 
+        if not Values["Show Name"] then
+            displayText = kind == "Gate" and gateDisplayName(object) or kind
+        end
+
+        local myRoot = root()
         if Values["Show Distance"] and myRoot then
-            displayText = displayText .. " [" ..
-                math.floor((myRoot.Position - part.Position).Magnitude) ..
-                " M]"
+            displayText = displayText .. " [" .. math.floor(
+                (myRoot.Position - part.Position).Magnitude
+            ) .. " M]"
         end
 
         text.Text = displayText
-        billboard.Parent = espGui
     end
 end
 
-local function rebuildESP()
+rebuildESP = function()
     clearESP()
 
     if not Values["Enable ESP"] then return end
+    if not isMatchESPAllowed() then return end
 
     for _, targetPlayer in ipairs(Players:GetPlayers()) do
         addCharacterESP(targetPlayer)
     end
 
+    local gateIndex = 0
     for _, object in ipairs(workspace:GetDescendants()) do
         local kind = objectKind(object)
-
         if kind and (object:IsA("Model") or object:IsA("BasePart")) then
-            addObjectESP(object, kind)
+            if kind == "Gate" then
+                gateIndex += 1
+                addObjectESP(object, kind, gateIndex)
+            else
+                addObjectESP(object, kind)
+            end
         end
     end
 end
 
 Hooks["Enable ESP"] = function(on)
     if on then
+        bindMatchSignals()
         rebuildESP()
 
         local lastRebuild = 0
-
         FeatureManager:Connect("Enable ESP", RunService.Heartbeat, function()
             local now = os.clock()
-
-            if now - lastRebuild >= 1 then
+            if now - lastRebuild >= 0.75 then
                 lastRebuild = now
                 rebuildESP()
             end
@@ -2839,16 +3024,20 @@ for _, name in ipairs({
     "ESP Gate",
     "ESP Hook",
     "ESP Pallet",
+    "ESP Window / Vault",
     "Show Name",
     "Show Distance",
     "Show Health",
+    "ESP Distance",
+    "ESP Transparency",
     "Survivor Color",
     "Killer Color",
     "Zombie Dummy Color",
     "Generator Color",
     "Gate Color",
     "Hook Color",
-    "Pallet Color"
+    "Pallet Color",
+    "Window / Vault Color"
 }) do
     Hooks[name] = function()
         if Values["Enable ESP"] then
