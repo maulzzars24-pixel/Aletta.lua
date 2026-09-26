@@ -18,6 +18,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Lighting = game:GetService("Lighting")
 local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 local VirtualUser = game:GetService("VirtualUser")
 
 local player = Players.LocalPlayer
@@ -536,6 +537,38 @@ local CONFIG = {
                 B("Refresh List"),
                 B("Set as Autoload"),
                 B("Reset Autoload")
+            }}
+        }
+    },
+
+    {
+        name = "Info",
+        features = {
+            {name = "Profil User", controls = {
+                {type = "profile", label = "User Profile"},
+                {type = "label", label = "Username  •  LocalPlayer", height = 26},
+                {type = "label", label = "Status  •  FREE", height = 26},
+                {type = "label", label = "Expired  •  Tidak tersedia / tidak ditentukan", height = 32}
+            }},
+            {name = "Sosial Media", controls = {
+                {type = "label", label = "Discord  •  discord.gg/JGNVEK6s7", height = 30},
+                B("Join Discord"),
+                {type = "label", label = "TikTok  •  @alettamelindaw", height = 30},
+                B("Open TikTok")
+            }},
+            {name = "Server Info", controls = {
+                {type = "label", label = "Server ID  •  " .. (game.JobId ~= "" and game.JobId or "Studio / Reserved"), height = 32},
+                B("Copy Server ID"),
+                B("Rejoin Server"),
+                B("Server Hop")
+            }},
+            {name = "Script Info", controls = {
+                {type = "label", label = "Developer  •  Aletta", height = 26},
+                {type = "label", label = "Version  •  Beta V1", height = 26},
+                {type = "label", label = "Status  •  Non Stable & Update", height = 32}
+            }},
+            {name = "GUI", controls = {
+                B("Destroy UI")
             }}
         }
     }
@@ -1156,6 +1189,64 @@ local function makeControl(parent, control, order)
         UIS.InputEnded:Connect(function(input)
             if isPress(input) then
                 dragging = false
+            end
+        end)
+
+    elseif control.type == "profile" then
+        frame.Size = UDim2.new(1, 0, 0, 92)
+
+        local avatar = new("ImageLabel", {
+            Name = "UserAvatar",
+            BackgroundColor3 = FIELD,
+            BackgroundTransparency = 0,
+            Size = UDim2.fromOffset(72, 72),
+            Position = UDim2.fromOffset(8, 8),
+            Image = "",
+            ScaleType = Enum.ScaleType.Crop
+        }, frame)
+        corner(avatar, 36)
+
+        local nameLabel = new("TextLabel", {
+            Text = player.DisplayName,
+            Font = Enum.Font.GothamBold,
+            TextSize = 15,
+            TextColor3 = TEXT,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 12),
+            Size = UDim2.new(1, -100, 0, 24),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+
+        local usernameLabel = new("TextLabel", {
+            Text = "@" .. player.Name,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = GRAY,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 38),
+            Size = UDim2.new(1, -100, 0, 20),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+
+        local statusLabel = new("TextLabel", {
+            Text = "FREE  •  Beta V1",
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = ACCENT,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 60),
+            Size = UDim2.new(1, -100, 0, 18),
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, frame)
+
+        task.spawn(function()
+            local ok, content = pcall(function()
+                return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            end)
+            if ok and content then
+                avatar.Image = content
             end
         end)
 
@@ -2227,6 +2318,59 @@ end
 
 Hooks["Delete Config File"] = function()
     print("[Aletta] Build ini tidak memakai filesystem exploit; gunakan Configuration untuk config sesi.")
+end
+
+-- =========================================================
+-- INFO / SOCIAL / SERVER
+-- =========================================================
+
+local function openExternalUrl(url)
+    local ok = pcall(function()
+        GuiService:OpenBrowserWindow(url)
+    end)
+    if not ok then
+        warn("[Aletta] Browser tidak dapat dibuka otomatis: " .. tostring(url))
+    end
+end
+
+local function copyText(value)
+    if type(setclipboard) == "function" then
+        local ok = pcall(setclipboard, tostring(value))
+        if ok then return true end
+    end
+    print("[Aletta] Copy value:", tostring(value))
+    return false
+end
+
+Hooks["Join Discord"] = function()
+    openExternalUrl("https://discord.gg/JGNVEK6s7")
+end
+
+Hooks["Open TikTok"] = function()
+    openExternalUrl("https://www.tiktok.com/@alettamelindaw?_r=1&_t=ZS-9A37fLCEEYZ")
+end
+
+Hooks["Copy Server ID"] = function()
+    copyText(game.JobId)
+end
+
+Hooks["Rejoin Server"] = function()
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+end
+
+Hooks["Server Hop"] = function()
+    -- Tanpa HTTP/server-list eksternal: minta matchmaking Roblox membuat sesi baru.
+    pcall(function()
+        TeleportService:TeleportAsync(game.PlaceId, {player})
+    end)
+end
+
+Hooks["Destroy UI"] = function()
+    if gui and gui.Parent then
+        gui:Destroy()
+    end
 end
 
 -- =========================================================
