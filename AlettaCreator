@@ -23,6 +23,27 @@ local TeleportService = game:GetService("TeleportService")
 local GuiService = game:GetService("GuiService")
 local VirtualUser = game:GetService("VirtualUser")
 
+--// SINGLE EXECUTE / KEEP LOADED
+--// Jika aktif, execute kedua tidak membuat GUI/fitur baru.
+--// Jika toggle dimatikan dari Config, execute ulang tetap diperbolehkan.
+local AlettaRuntime = nil
+pcall(function()
+    if type(getgenv) == "function" then
+        AlettaRuntime = getgenv()
+    elseif type(shared) == "table" then
+        AlettaRuntime = shared
+    end
+end)
+
+if AlettaRuntime and AlettaRuntime.AlettaCreatorRuntime then
+    local runtime = AlettaRuntime.AlettaCreatorRuntime
+    local existing = runtime.Gui
+    if runtime.SingleExecute ~= false and existing and existing.Parent then
+        return
+    end
+    AlettaRuntime.AlettaCreatorRuntime = nil
+end
+
 local player = Players.LocalPlayer
 if not player then
     warn("[Aletta] LocalPlayer belum tersedia.")
@@ -66,6 +87,7 @@ Values["Auto Skill Check"] = false
 Values["Auto Sprint Mobile"] = false
 Values["ESP Range"] = 600
 Values["ESP Distance"] = 600
+if Values["Target SCP / Zombie"] == nil then Values["Target SCP / Zombie"] = true end
 Values["Parry Radius"] = 13
 Values["Safety Parry"] = false
 Values["Aggressive Parry"] = false
@@ -346,7 +368,6 @@ local CONFIG = {
             {name = "ESP Role", controls = {
                 T("ESP Survivor", true),
                 T("ESP Killer", true),
-                T("ESP Zombie Dummy", true)
             }},
             {name = "ESP Object", controls = {
                 T("ESP Generator", true),
@@ -519,6 +540,7 @@ local CONFIG = {
         name = "Config",
         features = {
             {name = "Menu Setting", controls = {
+                T("Single Execute / Keep Loaded", true),
                 S("Corner Radius", 0, 20, 10),
                 T("Open Keybind", true),
                 T("Custom Cursor"),
@@ -633,6 +655,15 @@ local gui = new("ScreenGui", {
     IgnoreGuiInset = true,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 }, playerGui)
+
+-- Runtime marker: tetap aktif selama sesi/place yang sama.
+if AlettaRuntime then
+    AlettaRuntime.AlettaCreatorRuntime = {
+        Gui = gui,
+        StartedAt = os.clock(),
+        SingleExecute = true
+    }
+end
 
 local window = new("Frame", {
     Size = UDim2.fromOffset(480, 330),
@@ -1672,6 +1703,67 @@ local function root()
 end
 
 -- =========================================================
+-- PARRY DETECTION RANGE VISUAL
+-- =========================================================
+-- Lingkaran ini adalah area deteksi Auto Parry di sekitar karakter.
+-- Radius mengikuti slider "ESP Range" pada Parry Menu.
+local parryRangeVisual = nil
+
+local function destroyParryRangeVisual()
+    if parryRangeVisual then
+        pcall(function()
+            parryRangeVisual:Destroy()
+        end)
+        parryRangeVisual = nil
+    end
+end
+
+local function updateParryRangeVisual()
+    local r = root()
+    if not r then
+        destroyParryRangeVisual()
+        return
+    end
+
+    local radius = math.max(1, tonumber(Values["ESP Range"]) or 600)
+
+    if not parryRangeVisual or parryRangeVisual.Parent ~= r then
+        destroyParryRangeVisual()
+
+        local adorn = Instance.new("CylinderHandleAdornment")
+        adorn.Name = "AlettaParryDetectionRange"
+        adorn.Adornee = r
+        adorn.AlwaysOnTop = true
+        adorn.ZIndex = 5
+        adorn.Color3 = ACCENT
+        adorn.Transparency = 0.82
+        adorn.Height = 0.08
+        adorn.Radius = radius
+        adorn.CFrame = CFrame.new(0, -2.85, 0)
+        adorn.Parent = r
+
+        parryRangeVisual = adorn
+    else
+        parryRangeVisual.Radius = radius
+    end
+end
+
+local function setParryRangeVisual(enabled)
+    if not enabled then
+        destroyParryRangeVisual()
+        return
+    end
+    updateParryRangeVisual()
+end
+
+Hooks["ESP Range"] = function(value)
+    Values["ESP Range"] = tonumber(value) or 600
+    if Values["Auto Parry"] or Values["Safety Parry"] or Values["Aggressive Parry"] then
+        updateParryRangeVisual()
+    end
+end
+
+-- =========================================================
 -- MOVEMENT / CAMERA / LIGHTING
 -- =========================================================
 
@@ -2493,6 +2585,13 @@ Hooks["Delete Config File"] = function()
     print("[Aletta] Build ini tidak memakai filesystem exploit; gunakan Configuration untuk config sesi.")
 end
 
+-- Single Execute / Keep Loaded
+Hooks["Single Execute / Keep Loaded"] = function(on)
+    if AlettaRuntime and AlettaRuntime.AlettaCreatorRuntime then
+        AlettaRuntime.AlettaCreatorRuntime.SingleExecute = on == true
+    end
+end
+
 -- =========================================================
 -- INFO / SOCIAL / SERVER
 -- =========================================================
@@ -2654,14 +2753,15 @@ end
 bindMatchSignals()
 
 local espColorMap = {
-    Survivor = Color3.fromRGB(70, 220, 255),
-    Killer = Color3.fromRGB(255, 80, 80),
+    Survivor = Color3.fromRGB(70, 255, 100),   -- green
+    Killer = Color3.fromRGB(255, 60, 60),      -- red
     Zombie = Color3.fromRGB(190, 70, 255),
-    Generator = Color3.fromRGB(255, 235, 50),
-    Gate = Color3.fromRGB(255, 190, 50),
-    Hook = Color3.fromRGB(255, 90, 130),
-    Pallet = Color3.fromRGB(255, 150, 50),
-    Window = Color3.fromRGB(80, 150, 255)
+    SCP = Color3.fromRGB(190, 70, 255),
+    Generator = Color3.fromRGB(70, 140, 255),  -- blue
+    Gate = Color3.fromRGB(255, 255, 255),      -- white
+    Hook = Color3.fromRGB(255, 60, 60),        -- red
+    Pallet = Color3.fromRGB(255, 225, 60),     -- yellow
+    Window = Color3.fromRGB(255, 225, 60)      -- yellow
 }
 
 clearESP = function()
@@ -2758,31 +2858,12 @@ local function roleOf(targetPlayer)
 end
 
 local function espColor(role)
-    local customName
-
-    if role == "Survivor" then
-        customName = "Survivor Color"
-    elseif role == "Killer" then
-        customName = "Killer Color"
-    else
-        customName = "Zombie Dummy Color"
+    if role == "Killer" then
+        return Color3.fromRGB(255, 60, 60)
+    elseif role == "Survivor" then
+        return Color3.fromRGB(70, 255, 100)
     end
-
-    local custom = Values[customName]
-
-    local map = {
-        Purple = ACCENT,
-        Red = Color3.fromRGB(255, 70, 70),
-        Green = Color3.fromRGB(70, 255, 100),
-        Blue = Color3.fromRGB(70, 140, 255),
-        Cyan = Color3.fromRGB(60, 220, 255),
-        Yellow = Color3.fromRGB(255, 220, 50),
-        Orange = Color3.fromRGB(255, 150, 50),
-        White = TEXT,
-        Pink = Color3.fromRGB(255, 100, 200)
-    }
-
-    return map[custom] or espColorMap[role] or ACCENT
+    return espColorMap[role] or ACCENT
 end
 
 local function distanceAllowed(part)
@@ -2811,14 +2892,17 @@ local function addCharacterESP(targetPlayer)
     if not c or not h or not targetRoot or h.Health <= 0 or not role then return end
     if not distanceAllowed(targetRoot) then return end
 
-    if role == "Killer" and not Values["ESP Killer"] then return end
-    if role == "Survivor" and not Values["ESP Survivor"] then return end
-    if role ~= "Killer" and role ~= "Survivor"
-        and not Values["ESP Zombie Dummy"] then
+    -- Name/Distance ESP hanya untuk Killer dan Survivor.
+    -- Zombie/SCP tetap diberi highlight ungu, tetapi tanpa Name/Distance.
+    local isZombie = role == "Zombie" or role == "Zombie Dummy" or role == "SCP"
+    if role ~= "Killer" and role ~= "Survivor" and not isZombie then
         return
     end
+    if role == "Killer" and not Values["ESP Killer"] then return end
+    if role == "Survivor" and not Values["ESP Survivor"] then return end
+    if isZombie and Values["Target SCP / Zombie"] == false then return end
 
-    local color = espColor(role)
+    local color = isZombie and Color3.fromRGB(190, 70, 255) or espColor(role)
     local transparency = espTransparency()
 
     local highlight = Instance.new("Highlight")
@@ -2829,9 +2913,9 @@ local function addCharacterESP(targetPlayer)
     highlight.FillColor = color
     highlight.Parent = espFolder
 
-    if Values["Show Name"]
+    if not isZombie and (Values["Show Name"]
         or Values["Show Distance"]
-        or Values["Show Health"] then
+        or Values["Show Health"]) then
 
         local billboard = Instance.new("BillboardGui")
         billboard.Adornee = targetRoot
@@ -2908,22 +2992,10 @@ local function addObjectESP(object, kind, gateIndex)
         or object:FindFirstChildWhichIsA("BasePart", true)
     if not part or not distanceAllowed(part) then return end
 
-    local map = {
-        Purple = ACCENT,
-        Red = Color3.fromRGB(255, 70, 70),
-        Green = Color3.fromRGB(70, 255, 100),
-        Blue = Color3.fromRGB(70, 140, 255),
-        Cyan = Color3.fromRGB(60, 220, 255),
-        Yellow = Color3.fromRGB(255, 220, 50),
-        Orange = Color3.fromRGB(255, 150, 50),
-        White = TEXT,
-        Pink = Color3.fromRGB(255, 100, 200)
-    }
-
-    local customKey = kind == "Window"
-        and "Window / Vault Color"
-        or (kind .. " Color")
-    local color = map[Values[customKey]] or espColorMap[kind] or ACCENT
+    -- Warna object ESP ditetapkan sesuai permintaan:
+    -- Generator = biru, Window/Vault = kuning, Pallet = kuning,
+    -- Hook = merah, Gate 1/2 = putih.
+    local color = espColorMap[kind] or ACCENT
     local transparency = espTransparency()
 
     local highlight = Instance.new("Highlight")
@@ -2934,48 +3006,8 @@ local function addObjectESP(object, kind, gateIndex)
     highlight.FillColor = color
     highlight.Parent = espFolder
 
-    if Values["Show Name"] or Values["Show Distance"] then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Adornee = part
-        billboard.Size = UDim2.fromOffset(170, 30)
-        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Parent = espGui
-
-        local text = Instance.new("TextLabel")
-        text.BackgroundTransparency = 1
-        text.Size = UDim2.fromScale(1, 1)
-        text.Font = Enum.Font.GothamBold
-        text.TextSize = 12
-        text.TextColor3 = color
-        text.TextStrokeTransparency = 0.2
-        text.Parent = billboard
-
-        local displayText
-        if kind == "Gate" then
-            displayText = gateDisplayName(object)
-            if displayText == "Gate" and gateIndex then
-                displayText = "Gate " .. tostring(gateIndex)
-            end
-        elseif kind == "Window" then
-            displayText = "Window / Vault"
-        else
-            displayText = object.Name
-        end
-
-        if not Values["Show Name"] then
-            displayText = kind == "Gate" and gateDisplayName(object) or kind
-        end
-
-        local myRoot = root()
-        if Values["Show Distance"] and myRoot then
-            displayText = displayText .. " [" .. math.floor(
-                (myRoot.Position - part.Position).Magnitude
-            ) .. " M]"
-        end
-
-        text.Text = displayText
-    end
+    -- Object ESP tidak menampilkan Name/Distance.
+    -- Name/Distance hanya dipakai oleh addCharacterESP untuk Killer/Survivor.
 end
 
 rebuildESP = function()
@@ -3023,7 +3055,6 @@ end
 for _, name in ipairs({
     "ESP Survivor",
     "ESP Killer",
-    "ESP Zombie Dummy",
     "ESP Generator",
     "ESP Gate",
     "ESP Hook",
@@ -3137,16 +3168,16 @@ end
 -- =========================================================
 
 -- =========================================================
--- AUTO PARRY - PROJECT-LOCAL TEST IMPLEMENTATION
--- =========================================================
--- Uses the equipped Parrying Dagger Tool's normal Activate() path instead
--- of guessing FireServer arguments. This lets the game's own Tool/LocalScript
--- send the correct parry request and keeps server validation authoritative.
+-- AUTO PARRY - PROJECT-LOCAL IMPLEMENTATION
+-- Uses the project's Parrying Dagger remote when it exists, with the normal
+-- Tool:Activate() path as a secondary path. No guessed payload is sent.
 
 local AutoParry = {
     last = 0,
-    cooldown = 0.22,
+    cooldown = 0.16,
     armed = false,
+    lastResult = 0,
+    resultSeen = false,
 }
 
 local function getRootPart(model)
@@ -3156,139 +3187,281 @@ local function getRootPart(model)
         or model:FindFirstChild("Torso")
 end
 
-local function findParryTool()
-    local c = character()
-    if c then
-        for _, v in ipairs(c:GetChildren()) do
-            if v:IsA("Tool") and (string.find(string.lower(v.Name), "parry") or string.find(string.lower(v.Name), "dagger")) then
-                return v
+local function findParryRemote()
+    local rs = game:GetService("ReplicatedStorage")
+    local candidates = {
+        {"Remotes", "Items", "Parrying Dagger", "parry"},
+        {"Items", "Parrying Dagger", "parry"},
+        {"Remotes", "Parrying Dagger", "parry"},
+    }
+    for _, path in ipairs(candidates) do
+        local node = rs
+        local ok = true
+        for _, name in ipairs(path) do
+            node = node:FindFirstChild(name)
+            if not node then ok = false break end
+        end
+        if ok and node:IsA("RemoteEvent") then
+            return node
+        end
+    end
+
+    local found = nil
+    local function scan(node)
+        if found then return end
+        for _, child in ipairs(node:GetChildren()) do
+            if child:IsA("RemoteEvent") and string.lower(child.Name) == "parry" then
+                local parentName = child.Parent and string.lower(child.Parent.Name) or ""
+                if parentName:find("parry") or parentName:find("dagger") then
+                    found = child
+                    return
+                end
+            end
+            if child:IsA("Folder") or child:IsA("Model") then
+                scan(child)
             end
         end
     end
-    local backpack = player:FindFirstChildOfClass("Backpack")
-    if backpack then
-        for _, v in ipairs(backpack:GetChildren()) do
-            if v:IsA("Tool") and (string.find(string.lower(v.Name), "parry") or string.find(string.lower(v.Name), "dagger")) then
-                return v
-            end
+    scan(rs)
+    return found
+end
+
+local function findParryResultRemote()
+    local rs = game:GetService("ReplicatedStorage")
+    local candidates = {
+        {"Remotes", "Items", "Parrying Dagger", "parryResult"},
+        {"Items", "Parrying Dagger", "parryResult"},
+        {"Remotes", "Parrying Dagger", "parryResult"},
+    }
+    for _, path in ipairs(candidates) do
+        local node = rs
+        local ok = true
+        for _, name in ipairs(path) do
+            node = node:FindFirstChild(name)
+            if not node then ok = false break end
         end
+        if ok and node:IsA("RemoteEvent") then return node end
     end
     return nil
 end
 
-local function isAttackTrack(track)
-    local n = string.lower(track.Name or "")
-    local id = string.lower(track.Animation and track.Animation.AnimationId or "")
-    local hay = n .. " " .. id
-    return hay:find("attack")
-        or hay:find("lunge")
-        or hay:find("slash")
-        or hay:find("swing")
-        or hay:find("hit")
-        or hay:find("m1")
-        or hay:find("m2")
+local function findParryTool()
+    local c = character()
+    local function scan(container)
+        if not container then return nil end
+        for _, v in ipairs(container:GetChildren()) do
+            if v:IsA("Tool") then
+                local n = string.lower(v.Name)
+                if n:find("parry") or n:find("dagger") then
+                    return v
+                end
+            end
+        end
+        return nil
+    end
+    return scan(c) or scan(player:FindFirstChildOfClass("Backpack"))
 end
 
-local function killerCandidate(otherPlayer)
-    if not otherPlayer or otherPlayer == player then return nil end
-    local c = otherPlayer.Character
+local function isKillerPlayer(p)
+    if not p or p == player then return false end
+    local team = p.Team
+    if team and string.lower(team.Name):find("killer") then return true end
+
+    local c = p.Character
+    if not c then return false end
+    local role = c:GetAttribute("Role") or c:GetAttribute("Team") or c:GetAttribute("RoleName")
+    if typeof(role) == "string" and string.lower(role):find("killer") then return true end
+    return false
+end
+
+local function attackTrackInfo(humanoid)
+    local best = nil
+    for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+        local n = string.lower(track.Name or "")
+        local id = string.lower(track.Animation and track.Animation.AnimationId or "")
+        local hay = n .. " " .. id
+        if hay:find("attack") or hay:find("lunge") or hay:find("slash")
+            or hay:find("swing") or hay:find("m1") or hay:find("m2") then
+            local length = tonumber(track.Length) or 0
+            local pos = tonumber(track.TimePosition) or 0
+            local remaining = length > 0 and math.max(0, length - pos) or 0
+            if not best or remaining < best.remaining then
+                best = {track = track, remaining = remaining, position = pos, length = length}
+            end
+        end
+    end
+    return best
+end
+
+local function threatForKiller(p, myRoot, radius)
+    if not isKillerPlayer(p) then return nil end
+    local c = p.Character
     if not c then return nil end
     local h = c:FindFirstChildOfClass("Humanoid")
     local r = getRootPart(c)
     if not h or h.Health <= 0 or not r then return nil end
-    return c, h, r
+
+    local delta = myRoot.Position - r.Position
+    local dist = delta.Magnitude
+    if dist > radius then return nil end
+
+    local vel = r.AssemblyLinearVelocity
+    local speed = vel.Magnitude
+    local toUs = delta.Magnitude > 0 and delta.Unit or Vector3.zero
+    local approach = vel:Dot(toUs)
+    local attack = attackTrackInfo(h)
+
+    -- A killer must either be in an attack animation or moving rapidly toward us.
+    local movingThreat = speed >= 8 and approach >= 5
+    if not attack and not movingThreat then return nil end
+
+    -- Require the killer to be facing roughly toward us when an attack track exists.
+    local facing = r.CFrame.LookVector:Dot(toUs)
+    if attack and facing < -0.15 and not movingThreat then return nil end
+
+    return {
+        player = p,
+        character = c,
+        root = r,
+        distance = dist,
+        speed = speed,
+        approach = approach,
+        facing = facing,
+        attack = attack,
+    }
 end
 
 local function attackThreat()
     local myRoot = root()
     if not myRoot then return nil end
 
-    local radius = tonumber(Values["Parry Radius"]) or 13
+    local radius = math.clamp(tonumber(Values["ESP Range"]) or 26, 0, 600)
+    local parryRadius = math.clamp(tonumber(Values["Parry Radius"]) or 13, 1, 100)
     local aggressive = Values["Aggressive Parry"] == true
     local safety = Values["Safety Parry"] == true
-    if aggressive then
-        radius = math.max(radius, 18)
-    elseif safety then
-        radius = math.min(radius, 13)
-    end
 
-    local best, bestDist = nil, math.huge
+    -- Safety waits for the closer zone; Aggressive starts earlier.
+    local effectiveRadius = aggressive and math.max(radius, parryRadius)
+        or safety and math.min(math.max(radius, parryRadius), math.max(parryRadius, 18))
+        or math.max(radius, parryRadius)
+
+    local best
     for _, p in ipairs(Players:GetPlayers()) do
-        local c, h, r = killerCandidate(p)
-        if c then
-            local delta = r.Position - myRoot.Position
-            local dist = delta.Magnitude
-            if dist <= radius and dist < bestDist then
-                local moving = r.AssemblyLinearVelocity.Magnitude
-                local tracks = h:GetPlayingAnimationTracks()
-                local attacking = false
-                for _, track in ipairs(tracks) do
-                    if track.IsPlaying and isAttackTrack(track) then
-                        attacking = true
-                        break
-                    end
-                end
-
-                -- Also accept a fast approach as a fallback for projects whose
-                -- animation names are stripped in exported/decompiled builds.
-                local toward = delta.Magnitude > 0 and r.AssemblyLinearVelocity:Dot(delta.Unit) or 0
-                if attacking or (moving > 7 and toward < -7 and dist <= radius * 0.72) then
-                    best = c
-                    bestDist = dist
-                end
-            end
+        local t = threatForKiller(p, myRoot, effectiveRadius)
+        if t and (not best or t.distance < best.distance) then
+            best = t
         end
     end
-    return best, bestDist
+    return best
 end
 
-local function doParry()
+local function sendParry()
     local now = os.clock()
     if now - AutoParry.last < AutoParry.cooldown then return false end
-    local tool = findParryTool()
-    if not tool then return false end
 
-    AutoParry.last = now
-    local ok = pcall(function()
-        if tool.Parent ~= character() then
-            local h = humanoid()
-            if h then h:EquipTool(tool) end
-        end
-        task.wait()
-        tool:Activate()
+    local sent = false
+    local remote = findParryRemote()
+    if remote then
+        local ok = pcall(function()
+            -- The project exposes the Parrying Dagger action as a RemoteEvent.
+            -- Send no fabricated arguments; the server resolves the player.
+            remote:FireServer()
+        end)
+        sent = ok
+    end
+
+    local tool = findParryTool()
+    if tool and tool.Parent ~= character() then
+        local h = humanoid()
+        if h then pcall(function() h:EquipTool(tool) end) end
+    end
+    if tool and tool.Parent == character() then
+        pcall(function() tool:Activate() end)
+        sent = true or sent
+    end
+
+    if sent then
+        AutoParry.last = now
+    end
+    return sent
+end
+
+local function hookParryResult()
+    local ev = findParryResultRemote()
+    if not ev then return end
+    disconnectList("Auto Parry Result")
+    FeatureManager:Connect("Auto Parry Result", ev.OnClientEvent, function(...)
+        AutoParry.lastResult = os.clock()
+        AutoParry.resultSeen = true
     end)
-    return ok
 end
 
 local function stopAutoParry()
     disconnectList("Auto Parry")
+    disconnectList("Auto Parry Result")
     AutoParry.armed = false
 end
 
 Hooks["Auto Parry"] = function(on)
     stopAutoParry()
+    setParryRangeVisual(on == true or Values["Safety Parry"] or Values["Aggressive Parry"])
     if not on then return end
+
     AutoParry.armed = true
+    AutoParry.last = 0
+    hookParryResult()
+    updateParryRangeVisual()
+
     FeatureManager:Connect("Auto Parry", RunService.Heartbeat, function()
         if not AutoParry.armed then return end
-        local target = attackThreat()
-        if target then
-            doParry()
+        updateParryRangeVisual()
+
+        local threat = attackThreat()
+        if not threat then return end
+
+        local safety = Values["Safety Parry"] == true
+        local aggressive = Values["Aggressive Parry"] == true
+        local radius = tonumber(Values["Parry Radius"]) or 13
+
+        -- Safety: only parry in the close zone. Aggressive: parry earlier.
+        if safety and not aggressive and threat.distance > math.max(radius, 14) then
+            return
         end
+
+        -- If an attack animation exposes its remaining duration, avoid waiting
+        -- for the end of the animation; parry as the attack enters its active phase.
+        if threat.attack and threat.attack.length > 0 then
+            local progress = threat.attack.position / threat.attack.length
+            if safety and progress < 0.35 and threat.distance > radius then return end
+            if aggressive and progress < 0.12 and threat.distance > radius then return end
+        elseif not aggressive and threat.distance > radius then
+            return
+        end
+
+        sendParry()
     end)
 end
 
 Hooks["Safety Parry"] = function(on)
     Values["Safety Parry"] = on == true
-    if on then Values["Aggressive Parry"] = false end
+    if on then
+        Values["Aggressive Parry"] = false
+        updateParryRangeVisual()
+    elseif not Values["Auto Parry"] and not Values["Aggressive Parry"] then
+        destroyParryRangeVisual()
+    end
 end
 
 Hooks["Aggressive Parry"] = function(on)
     Values["Aggressive Parry"] = on == true
-    if on then Values["Safety Parry"] = false end
+    if on then
+        Values["Safety Parry"] = false
+        updateParryRangeVisual()
+    elseif not Values["Auto Parry"] and not Values["Safety Parry"] then
+        destroyParryRangeVisual()
+    end
 end
 
--- Existing V1/V2 toggles are aliases to the same real local implementation.
 Hooks["Auto Parry V1"] = Hooks["Auto Parry"]
 Hooks["Auto Parry V2"] = Hooks["Auto Parry"]
 Hooks["Aggressive Parry V1"] = Hooks["Aggressive Parry"]
@@ -3523,6 +3696,10 @@ end)
 player.CharacterAdded:Connect(function()
     task.wait(0.25)
 
+    if Values["Auto Parry"] or Values["Safety Parry"] or Values["Aggressive Parry"] then
+        task.defer(updateParryRangeVisual)
+    end
+
     if Values["Enable Run Speed"] and Hooks["Enable Run Speed"] then
         pcall(function()
             Hooks["Enable Run Speed"](true)
@@ -3545,9 +3722,13 @@ end)
 -- =========================================================
 
 gui.Destroying:Connect(function()
+    if AlettaRuntime and AlettaRuntime.AlettaCreatorRuntime and AlettaRuntime.AlettaCreatorRuntime.Gui == gui then
+        AlettaRuntime.AlettaCreatorRuntime = nil
+    end
     FeatureManager:StopAll()
     destroyCrosshair()
     clearESP()
+    destroyParryRangeVisual()
 
     if mwGui then
         mwGui:Destroy()
