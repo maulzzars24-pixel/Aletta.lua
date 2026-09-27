@@ -1,41 +1,3364 @@
-local P,R,U,RS=game:GetService('Players'),game:GetService('ReplicatedStorage'),game:GetService('UserInputService'),game:GetService('RunService')
-local p=P.LocalPlayer;local A=Color3.fromRGB(150,80,255)
-local g=Instance.new('ScreenGui');g.Name='AlettaCreatorGUI';g.ResetOnSpawn=false;g.Parent=p:WaitForChild('PlayerGui')
-local function cr(o,r)local c=Instance.new('UICorner');c.CornerRadius=UDim.new(0,r or 8);c.Parent=o end
-local function bt(pa,s)local b=Instance.new('TextButton');b.Text=s;b.TextColor3=Color3.new(1,1,1);b.Font=Enum.Font.GothamMedium;b.TextSize=12;b.BackgroundColor3=Color3.fromRGB(38,30,54);b.Size=UDim2.new(1,-8,0,32);b.Parent=pa;cr(b,7);return b end
-local m=Instance.new('Frame');m.Size=UDim2.fromOffset(480,330);m.Position=UDim2.fromOffset(120,80);m.BackgroundColor3=Color3.fromRGB(14,10,22);m.Parent=g;cr(m,10);local ms=Instance.new('UIStroke',m);ms.Color=A
-local h=Instance.new('Frame',m);h.Size=UDim2.new(1,0,0,48);h.BackgroundColor3=Color3.fromRGB(20,16,30);cr(h,10)
-local title=Instance.new('TextLabel',h);title.Text='Aletta Creator';title.TextColor3=Color3.new(1,1,1);title.TextSize=15;title.Font=Enum.Font.GothamBold;title.BackgroundTransparency=1;title.Position=UDim2.fromOffset(14,5);title.Size=UDim2.fromOffset(300,24)
-local close=bt(h,'×');close.Size=UDim2.fromOffset(34,30);close.Position=UDim2.new(1,-42,0,8);close.MouseButton1Click:Connect(function()m.Visible=false end)
-local side=Instance.new('Frame',m);side.Size=UDim2.fromOffset(126,270);side.Position=UDim2.fromOffset(8,52);side.BackgroundColor3=Color3.fromRGB(20,16,30);cr(side,8)
-local tabs=Instance.new('ScrollingFrame',side);tabs.BackgroundTransparency=1;tabs.Size=UDim2.new(1,-8,1,-8);tabs.Position=UDim2.fromOffset(4,4);tabs.ScrollBarThickness=2;local tl=Instance.new('UIListLayout',tabs);tl.Padding=UDim.new(0,5)
-local con=Instance.new('Frame',m);con.Size=UDim2.fromOffset(330,270);con.Position=UDim2.fromOffset(142,52);con.BackgroundColor3=Color3.fromRGB(20,16,30);cr(con,8)
-local ct=title:Clone();ct.Parent=con;ct.Text='Survivor';ct.Position=UDim2.fromOffset(12,7)
-local st=title:Clone();st.Parent=con;st.Text='Bridge: scanning';st.TextSize=10;st.Font=Enum.Font.Gotham;st.Position=UDim2.fromOffset(12,32)
-local body=Instance.new('ScrollingFrame',con);body.BackgroundTransparency=1;body.Size=UDim2.new(1,-14,1,-62);body.Position=UDim2.fromOffset(7,55);body.ScrollBarThickness=3
-local rem={};local function scan()table.clear(rem);local q=R:FindFirstChild('Remotes') or R;for _,v in ipairs(q:GetDescendants())do if v:IsA('RemoteEvent')or v:IsA('RemoteFunction')then rem[v.Name]=v end end end;scan()
-local function find(ns)for _,n in ipairs(ns)do if rem[n]then return rem[n]end end end
-local function target(words,range)local root=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if not root then return end;local bm,bd=nil,range or 70;for _,o in ipairs(workspace:GetDescendants())do if o:IsA('Model') and o~=p.Character then local n=o.Name:lower();local ok=false;for _,w in ipairs(words or {})do if n:find(w)then ok=true;break end end;if ok then local pp=o.PrimaryPart or o:FindFirstChildWhichIsA('BasePart',true);if pp then local d=(pp.Position-root.Position).Magnitude;if d<bd then bm,bd=o,d end end end end end;return bm end
-local function call(ns,words)
- local r=find(ns);if not r then return false,'remote missing' end;local o=target(words);local ok=false
- if r:IsA('RemoteFunction') then ok=pcall(function()if o then r:InvokeServer(o)else r:InvokeServer()end end)
- else ok=pcall(function()if o then r:FireServer(o)else r:FireServer()end end) end
- return ok,ok and 'sent' or 'rejected'
+--// Aletta Creator GUI - Fremium Edition
+--// Single LocalScript
+--// Dibersihkan dari:
+--// 1. FeatureManager:Toggle yang belum ada
+--// 2. pemanggilan Hooks"..." yang salah
+--// 3. emoji LOCK
+--// 4. tombol ^ -> asset gambar Aletta
+--// 5. moved global -> local
+--// 6. beberapa koneksi/cleanup yang rawan error
+--//
+--// Catatan:
+--// Fitur yang membutuhkan otorisasi server/game-specific tetap menjadi
+--// placeholder/test state. Jangan gunakan client untuk bypass validasi server.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
+local VirtualUser = game:GetService("VirtualUser")
+
+local player = Players.LocalPlayer
+if not player then
+    warn("[Aletta] LocalPlayer belum tersedia.")
+    return
 end
-local function clear()for _,o in ipairs(body:GetChildren())do if o:IsA('GuiObject')then o:Destroy()end end end
-local function act(name,ns,w)local b=bt(body,name);b.MouseButton1Click:Connect(function()local ok,msg=call(ns,w);st.Text=(ok and '✓ 'or'✕ ')..name..' • '..msg end)end
-local esp=false;local aim=false;local espcon;local function players(on)local list=P:GetPlayers();for _,z in ipairs(list)do if z~=p and z.Character then local e=z.Character:FindFirstChild('AlettaESP');if e then e:Destroy()end;if on then local q=Instance.new('Highlight');q.Name='AlettaESP';q.FillColor=A;q.FillTransparency=.7;q.OutlineColor=A;q.Parent=z.Character end end end end
-local function show(tab)ct.Text=tab;clear()
- if tab=='Survivor'then act('Repair Generator',{'RepairEvent'},{'generator','gen'});act('Skill Check',{'SkillCheckEvent','SkillCheck'});act('Vault',{'VaultCommit','VaultEvent','fastvault'},{'vault','window'});act('Drop Pallet',{'PalletDropCommit','PalletDropEvent'},{'pallet'});act('Heal',{'HealEvent'},{'heal','med'});act('Unhook',{'SelfUnHookEvent','UnHookEvent'},{'hook'});act('Crouch',{'Crouch'});act('Parry',{'parry'});act('Veil',{'Addveil','Veil'})
- elseif tab=='Killer'then act('Basic Attack',{'BasicAttack','AttackEvent'});act('Lunge',{'Lunge'});act('Carry',{'CarrySurvivorEvent'});act('Hook',{'HookEvent'},{'hook'});act('Drop Survivor',{'DropSurvivorEvent'});act('Break Pallet',{'PalletBreakCommit'},{'pallet'});act('Veil',{'Addveil','Veil'})
- elseif tab=='ESP'then local e=bt(body,'Player ESP: OFF');e.MouseButton1Click:Connect(function()esp=not esp;e.Text='Player ESP: '..(esp and'ON'or'OFF');players(esp)end);local a=bt(body,'Aim Assist: OFF');a.MouseButton1Click:Connect(function()aim=not aim;a.Text='Aim Assist: '..(aim and'ON'or'OFF')end);act('Gate / Lever',{'gate','LeverEvent'},{'gate','lever'});act('Pallet Slide',{'PalletSlideEvent'},{'pallet'})
- elseif tab=='Animation'then act('Vault',{'VaultEvent','fastvault'},{'vault'});act('Fall',{'Fall'});act('Crouch',{'Crouch'})
- elseif tab=='Settings'then local q=bt(body,'Rescan Remotes');q.MouseButton1Click:Connect(function()scan();st.Text='✓ '..tostring((function()local n=0;for _ in pairs(rem)do n+=1 end;return n end)())..' endpoints found'end)
- elseif tab=='Config'then local q=Instance.new('TextLabel',body);q.Text='Aletta Creator • Compact Bridge\nGUI dipertahankan. Action memakai Remote asli yang ditemukan.';q.TextWrapped=true;q.TextColor3=Color3.new(1,1,1);q.BackgroundTransparency=1;q.Size=UDim2.new(1,-8,0,60)
- end
+
+local playerGui = player:WaitForChild("PlayerGui", 15)
+if not playerGui then
+    warn("[Aletta] PlayerGui tidak ditemukan.")
+    return
 end
-for _,n in ipairs({'Survivor','Killer','ESP','Animation','Settings','Config'})do local b=bt(tabs,n);b.MouseButton1Click:Connect(function()show(n)end)end;show('Survivor')
-local drag,ds,sp;h.InputBegan:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=true;ds=i.Position;sp=m.Position end end);U.InputChanged:Connect(function(i)if drag and(i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch)then local d=i.Position-ds;m.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)end end);U.InputEnded:Connect(function(i)if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=false end end)
-local launch=Instance.new('ImageButton',g);launch.Name='AlettaLauncher';launch.Image='rbxassetid://79108447755192';launch.BackgroundColor3=Color3.fromRGB(14,10,22);launch.Size=UDim2.fromOffset(46,46);launch.Position=UDim2.fromOffset(20,160);cr(launch,12);local ls=Instance.new('UIStroke',launch);ls.Color=A;launch.MouseButton1Click:Connect(function()m.Visible=not m.Visible end)
-RS:BindToRenderStep('AlettaAim',Enum.RenderPriority.Camera.Value+1,function()if not aim then return end;local cam=workspace.CurrentCamera;local root=p.Character and p.Character:FindFirstChild('HumanoidRootPart');if not root then return end;local best,bd=nil,math.huge;for _,z in ipairs(P:GetPlayers())do if z~=p and z.Character then local hr=z.Character:FindFirstChild('HumanoidRootPart');local hu=z.Character:FindFirstChildOfClass('Humanoid');if hr and hu and hu.Health>0 then local v=(hr.Position-cam.CFrame.Position);local d=v.Magnitude;local dot=cam.CFrame.LookVector:Dot(v.Unit);if dot>.65 and d<bd then best,bd=hr,d end end end end;if best then cam.CFrame=CFrame.lookAt(cam.CFrame.Position,best.Position)end end)
-task.spawn(function()while g.Parent do local n=0;for _ in pairs(rem)do n+=1 end;st.Text='Bridge: '..n..' endpoints';task.wait(1)end end)
+
+local camera = workspace.CurrentCamera
+
+local ACCENT = Color3.fromRGB(150, 80, 255)
+local GRAY = Color3.fromRGB(175, 175, 175)
+local OFF = Color3.fromRGB(70, 70, 70)
+local BG = Color3.fromRGB(14, 10, 22)
+local PANEL = Color3.fromRGB(20, 16, 30)
+local FIELD = Color3.fromRGB(38, 30, 54)
+local TEXT = Color3.fromRGB(255, 255, 255)
+
+-- Asset gambar tombol buka/tutup GUI.
+local BACKGROUND_ID = "rbxassetid://114593611204629"
+local LOGO_ID = "rbxassetid://79108447755192"
+local HEADER_LOGO_ID = "rbxassetid://122038427201250"
+local LOAD_SOUND_ID = "rbxassetid://83169454697282"
+local ICON_ID = LOGO_ID
+
+-- Hapus GUI lama jika script dijalankan ulang.
+for _, name in ipairs({"AlettaCreatorGUI", "AlettaCrosshair", "AlettaESPLabels", "AlettaMWIndicator"}) do
+    local old = playerGui:FindFirstChild(name)
+    if old then
+        old:Destroy()
+    end
+end
+
+local Values = {}
+Values["Auto Skill Check Mode"] = "Legit"
+Values["Auto Skill Check"] = false
+Values["Auto Sprint Mobile"] = false
+
+local Hooks = {}
+local Defaults = {}
+local Controls = {}
+local FeatureConnections = {}
+
+-- =========================================================
+-- DEVELOPER BRIDGE (tetap di dalam GUI Aletta Creator)
+-- Tidak membuat GUI kedua. Bridge hanya memakai endpoint yang memang
+-- tersedia di ReplicatedStorage project dan dipakai sebagai test hook.
+-- =========================================================
+local Bridge = {
+    Remotes = {},
+    Count = 0,
+    LastStatus = "Belum discan"
+}
+
+local BRIDGE_REMOTE_NAMES = {
+    Repair = {"RepairEvent"},
+    SkillCheck = {"SkillCheckEvent", "SkillCheck"},
+    Vault = {"VaultCommit", "VaultEvent", "fastvault"},
+    PalletDrop = {"PalletDropCommit", "PalletDropEvent"},
+    PalletSlide = {"PalletSlideEvent"},
+    PalletBreak = {"PalletBreakCommit"},
+    Heal = {"HealEvent"},
+    Unhook = {"SelfUnHookEvent", "UnHookEvent"},
+    Crouch = {"Crouch"},
+    BasicAttack = {"BasicAttack", "AttackEvent"},
+    Lunge = {"Lunge"},
+    Carry = {"CarrySurvivorEvent"},
+    Hook = {"HookEvent"},
+    DropSurvivor = {"DropSurvivorEvent"},
+    Gate = {"LeverEvent", "gate"},
+    Parry = {"parry"},
+    Veil = {"Addveil", "Veil"}
+}
+
+local function BridgeScan()
+    table.clear(Bridge.Remotes)
+    local root = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
+    for _, object in ipairs(root:GetDescendants()) do
+        if object:IsA("RemoteEvent") or object:IsA("RemoteFunction") then
+            Bridge.Remotes[object.Name] = object
+        end
+    end
+    local count = 0
+    for _ in pairs(Bridge.Remotes) do count += 1 end
+    Bridge.Count = count
+    Bridge.LastStatus = "Connected • " .. tostring(count) .. " endpoints"
+    return count
+end
+
+local function BridgeFind(list)
+    for _, name in ipairs(list) do
+        local remote = Bridge.Remotes[name]
+        if remote then return remote end
+    end
+end
+
+local function BridgeTarget(words, maxRange)
+    if not words or #words == 0 then return nil end
+    local character = player.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
+
+    local nearest, nearestDistance = nil, maxRange or 70
+    for _, object in ipairs(workspace:GetDescendants()) do
+        if object:IsA("Model") and object ~= character then
+            local lowerName = object.Name:lower()
+            local matched = false
+            for _, word in ipairs(words) do
+                if lowerName:find(word) then matched = true break end
+            end
+            if matched then
+                local part = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart", true)
+                if part then
+                    local distance = (part.Position - root.Position).Magnitude
+                    if distance < nearestDistance then
+                        nearest, nearestDistance = object, distance
+                    end
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function BridgeCall(key, targetWords)
+    local remote = BridgeFind(BRIDGE_REMOTE_NAMES[key] or {})
+    if not remote then
+        Bridge.LastStatus = key .. " • endpoint tidak ditemukan"
+        warn("[Aletta Bridge] " .. Bridge.LastStatus)
+        return false
+    end
+
+    local target = BridgeTarget(targetWords)
+    local ok = false
+    if remote:IsA("RemoteFunction") then
+        ok = pcall(function()
+            if target then remote:InvokeServer(target) else remote:InvokeServer() end
+        end)
+    else
+        ok = pcall(function()
+            if target then remote:FireServer(target) else remote:FireServer() end
+        end)
+    end
+
+    Bridge.LastStatus = key .. (ok and " • sent" or " • rejected")
+    return ok
+end
+
+BridgeScan()
+
+local function disconnectList(name)
+    local list = FeatureConnections[name]
+    if not list then return end
+
+    for _, connection in ipairs(list) do
+        if connection and connection.Disconnect then
+            pcall(function()
+                connection:Disconnect()
+            end)
+        end
+    end
+
+    FeatureConnections[name] = nil
+end
+
+local function addConnection(name, connection)
+    if not connection then return nil end
+    FeatureConnections[name] = FeatureConnections[name] or {}
+    table.insert(FeatureConnections[name], connection)
+    return connection
+end
+
+local FeatureManager = {}
+
+function FeatureManager:Set(name, enabled)
+    enabled = enabled == true
+    Values[name] = enabled
+
+    disconnectList(name)
+
+    local hook = Hooks[name]
+    if hook then
+        task.spawn(function()
+            local ok, err = pcall(hook, enabled)
+            if not ok then
+                warn("[Aletta] " .. tostring(name) .. ": " .. tostring(err))
+            end
+        end)
+    end
+end
+
+function FeatureManager:Get(name)
+    return Values[name] == true
+end
+
+function FeatureManager:Toggle(name)
+    self:Set(name, not self:Get(name))
+end
+
+function FeatureManager:Stop(name)
+    self:Set(name, false)
+end
+
+function FeatureManager:Connect(name, signal, callback)
+    if signal and signal.Connect then
+        return addConnection(name, signal:Connect(callback))
+    end
+end
+
+function FeatureManager:StopAll()
+    local names = {}
+    for name in pairs(FeatureConnections) do
+        table.insert(names, name)
+    end
+    for _, name in ipairs(names) do
+        disconnectList(name)
+    end
+end
+
+local function T(label, default)
+    return {type = "toggle", label = label, default = default == true}
+end
+
+local function I(label, default, placeholder)
+    return {
+        type = "input",
+        label = label,
+        default = tostring(default or ""),
+        placeholder = placeholder
+    }
+end
+
+local function D(label, options, default)
+    return {type = "dropdown", label = label, options = options, default = default}
+end
+
+local function K(label, default)
+    return {type = "hotkey", label = label, default = default}
+end
+
+local function B(label)
+    return {type = "button", label = label}
+end
+
+local function L(text, height)
+    return {type = "label", label = text, height = height}
+end
+
+local function S(label, min, max, default)
+    return {type = "slider", label = label, min = min, max = max, default = default}
+end
+
+local function C(label, name)
+    local d = "Default " .. name
+    return D(label, {"Default " .. name, "Red", "Green", "Blue", "Purple", "White", "Yellow", "Orange"}, d)
+end
+
+local function TC(label, default)
+    return D(label, {"Purple", "Cyan", "Red", "Yellow", "Orange", "Blue", "Green", "White", "Pink"}, default)
+end
+
+-- =========================================================
+-- CONFIG GUI
+-- =========================================================
+
+local CONFIG = {
+    {
+        name = "Survivor",
+        features = {
+            {name = "Survivor Controls", controls = {
+                L("Semua menu Survivor tersedia di bawah ini. Scroll untuk melihat seluruh fitur.", 42)
+            }},
+            {name = "Developer Bridge", controls = {
+                L("Bridge terhubung ke endpoint project yang tersedia. Tombol di bawah hanya untuk test aksi resmi.", 48),
+                B("Bridge Repair Generator"),
+                B("Bridge Skill Check"),
+                B("Bridge Vault"),
+                B("Bridge Drop Pallet"),
+                B("Bridge Heal"),
+                B("Bridge Unhook"),
+                B("Bridge Crouch"),
+                B("Bridge Parry"),
+                B("Bridge Rescan")
+            }},
+            {name = "Escape & Pallet", controls = {
+                B("Auto Escape [ 1x Click ]"),
+                B("Drop All Pallets [ 1x Click ]"),
+                T("Anti Block Window", true),
+                T("Pallet Save Team", true),
+                T("Safe Mode", true),
+                S("Radius Pallet", 0, 24, 12)
+            }},
+            {name = "Auto Menu", controls = {
+                T("Self Proges Heal"),
+                T("Auto Heal Team")
+            }},
+            {name = "Parry Menu", controls = {
+                T("Auto Parry"),
+                T("Fake Parry [Keybind R]"),
+                T("Safety Parry"),
+                T("Aggressive Parry"),
+                T("Esp Range"),
+                S("Parry Radius", 0, 26, 13),
+                S("Face Sensitivity", 0, 11, 5),
+                L("Ignore Skills\n   - Hidden S1\n   - Abyssal S1", 58)
+            }},
+            {name = "Flee Menu", controls = {
+                T("Flee Killer"),
+                S("Jarak Auto Flee", 0, 120, 60),
+                T("Auto Sprint Mobile"),
+                T("Auto Skill Check"),
+                D("Auto Skill Check Mode", {"Legit", "Instant", "Skip", "Normal", "Perfection"}, "Legit"),
+                T("Anti Fail Gene"),
+                D("Teleport Destination", {"Gate", "Generator", "Pallet", "Hook", "Teammate", "Killer"}, "Gate"),
+                B("Instant Teleport [ Teleport ke Bagian Yang di Tuju ]"),
+                T("Auto Crouch Dodge"),
+                T("Auto Bandage"),
+                T("Auto Crouch Veil"),
+                T("Anti Slow")
+            }},
+            {name = "Perks Mod", controls = {
+                D("Perks Mod", {"Default", "SpeedBoost", "Quick Recovery", "Flowstate", "Perfect Vault"}, "Default"),
+                T("SpeedBoost"),
+                S("Speed Boost Value", 0, 24, 12)
+            }},
+            {name = "Vault Mod", controls = {
+                T("Perfect Vault"),
+                T("Flowstate"),
+                S("Flowstate Cooldown", 0, 55, 27),
+                T("Quick Recovery"),
+                S("Quick Recovery Cooldown", 40, 300, 170)
+            }},
+            {name = "Skill Generator", controls = {
+                S("Skill Check Speed", 0, 28, 14),
+                T("Auto Skill Check Preview"),
+                D("Skill Check Preview Mode", {"Legit", "Normal", "Perfection"}, "Normal")
+            }},
+            {name = "Camera Menu", controls = {
+                T("Custom FOV"),
+                S("Field of View", 0, 160, 70)
+            }}
+        }
+    },
+
+    {
+        name = "Killer",
+        features = {
+            {name = "Developer Bridge", controls = {
+                L("Bridge terhubung ke endpoint project yang tersedia. Tombol di bawah hanya untuk test aksi resmi.", 48),
+                B("Bridge Basic Attack"),
+                B("Bridge Lunge"),
+                B("Bridge Carry"),
+                B("Bridge Hook"),
+                B("Bridge Drop Survivor"),
+                B("Bridge Break Pallet"),
+                B("Bridge Veil"),
+                B("Bridge Rescan")
+            }},
+            {name = "Killer Movement", controls = {
+                T("Walk Speed"),
+                S("Walk Speed Value", 0, 320, 160)
+            }},
+            {name = "Attack Menu", controls = {
+                D("Attack Mode", {"Basic Attack", "Lunge"}, "Basic Attack"),
+                T("One Hit"),
+                T("Show Range"),
+                S("Hit Radius", 0, 16, 8),
+                S("Hit Delay", 0, 450, 225),
+                T("Auto Aim Hidden")
+            }},
+            {name = "Skill Killer", controls = {
+                T("Counter Parry"),
+                T("Infinite Lunge"),
+                T("Anti Blind"),
+                T("Infinite Corrupt Abyssal"),
+                T("Block Windows/Pallet"),
+                T("Bypass Skill Gendong"),
+                T("No Cooldown Stalker/Hidden")
+            }},
+            {name = "Skill Menu", controls = {
+                S("Break Speed", 0, 11, 5),
+                D("3rd Person Camera", {"Default", "3rd Person", "First Person"}, "Default"),
+                D("Ganti Topeng Masked", {"Default", "Mask 1", "Mask 2", "Mask 3", "Mask 4"}, "Default")
+            }},
+            {name = "Auto Hook", controls = {T("Enable Auto Hook")}},
+            {name = "Kill All Instant", controls = {T("Kill All (Risk Ban)")}},
+            {name = "Auto Attack", controls = {
+                T("Auto Attack (No Animation)"),
+                I("Attack Range (studs)", 12)
+            }},
+            {name = "Killer Utility", controls = {
+                T("No Flashlight (Anti Blind)")
+            }},
+            {name = "Drop All Pallet [OP]", controls = {
+                T("Enable Drop Pallet Shortcut"),
+                B("Drop All Pallets Instantly"),
+                K("Hotkey PC", "H")
+            }},
+            {name = "No Cooldown Skill", controls = {
+                T("No Cooldown (M2 & Q) [Hidden]"),
+                T("No Cooldown (Q & M2) [Myers]"),
+                T("No Cooldown (M2 & Q) [Abysswalker]"),
+                T("Infinite Frenzy [Jeff]"),
+                T("Infinite Pursuit & Invis [Jason]")
+            }},
+            {name = "Hidden M2 Aimbot", controls = {
+                T("Hidden M2 Aimbot (Nearest Visible)")
+            }},
+            {name = "Mask Selection [The Masked]", controls = {
+                T("Enable Mask Selection GUI"),
+                K("Toggle Hotkey", "RightControl")
+            }},
+            {name = "Trigger Auto Parry", controls = {
+                T("Trigger Auto Parry (Fake Hit)")
+            }},
+            {name = "Fake Perks & Attributes", controls = {
+                T("Fake Containment (Instant Vault)"),
+                T("Fake Murderous Acrobatics"),
+                T("Instant Break (Pallet & Gen)"),
+                T("Super Speed (Walk Faster)")
+            }}
+        }
+    },
+
+    {
+        name = "Auto Farm [BETA]",
+        features = {
+            {name = "Anti AFK", controls = {
+                T("Stay Active (Anti AFK)", true)
+            }},
+            {name = "Auto Farm", locked = true, controls = {
+                T("Enable Auto Farm")
+            }},
+        }
+    },
+
+    {
+        name = "ESP",
+        features = {
+            {name = "Enable ESP", controls = {
+                T("Enable ESP")
+            }},
+            {name = "ESP Role", controls = {
+                T("ESP Survivor", true),
+                T("ESP Killer", true),
+                T("ESP Zombie Dummy", true)
+            }},
+            {name = "ESP Object", controls = {
+                T("ESP Generator", true),
+                T("ESP Gate"),
+                T("ESP Hook"),
+                T("ESP Pallet")
+            }},
+            {name = "ESP Settings", controls = {
+                T("Show Name"),
+                T("Show Distance"),
+                T("Show Health")
+            }},
+            {name = "Custom ESP Colors", controls = {
+                C("Survivor Color", "Survivor"),
+                C("Killer Color", "Killer"),
+                C("Zombie Dummy Color", "Zombie"),
+                C("Generator Color", "Generator"),
+                C("Gate Color", "Gate"),
+                C("Hook Color", "Hook"),
+                C("Pallet Color", "Pallet")
+            }},
+            {name = "ESP Display", controls = {
+                T("Show Next Map", true),
+                T("Indikator Stun Killer"),
+                T("Show (FPS & Spectator)", true),
+                T("Info Perk")
+            }},
+            {name = "Target", controls = {
+                T("Target SCP / Zombie"),
+                TC("SCP / Zombie Color", "Purple"),
+                T("Target Player"),
+                TC("Player Color", "Cyan"),
+                T("Target Killer"),
+                TC("Target Killer Color", "Red"),
+                T("Target Generator"),
+                TC("Target Generator Color", "Yellow"),
+                T("Target Pallet"),
+                TC("Target Pallet Color", "Orange"),
+                T("Target Window / Vault"),
+                TC("Window / Vault Color", "Blue")
+            }}
+        }
+    },
+
+    {
+        name = "Aimbot",
+        features = {
+            {name = "Aimbot & Crosshair", controls = {
+                T("Enable Aimbot"),
+                T("Hold RMB to Aim", true),
+                T("Show FOV Circle"),
+                D("Crosshair Style", {"Off", "Dot", "Cross", "Circle"}, "Off"),
+                T("Show Aim Line (3D)"),
+                I("FOV Radius (pixels)", 120)
+            }},
+            {name = "Silent Flask (The Cure)", locked = true, controls = {
+                T("Silent Flask (The Cure)")
+            }},
+            {name = "Auto Aim Flashlight", controls = {
+                T("Auto Aim Senter ke Killer"),
+                T("Tampilkan Jarak Senter (Ring)")
+            }},
+            {name = "Custom Crosshair", controls = {
+                T("Crosshair"),
+                TC("Crosshair Color", "Green"),
+                D("Crosshair Type", {"Off", "Dot", "Cross", "Circle"}, "Cross"),
+                S("Crosshair Size", 1, 30, 4)
+            }},
+            {name = "Crosshair Position", controls = {
+                S("Crosshair X Offset", -100, 100, 0),
+                S("Crosshair Y Offset", -100, 100, 0)
+            }},
+            {name = "Pistol", controls = {
+                T("Pistol"),
+                TC("Pistol Color", "Green"),
+                K("Pistol Hotkey", "Q"),
+                T("Block Aim Knocked", true),
+                T("Show Laser", true),
+                T("Aim Lock"),
+                K("Auto Prediksi Hotkey", "E"),
+                T("Auto Prediksi"),
+                S("Prediction", 0, 50, 35),
+                S("Aim Offset", -10, 10, -1),
+                T("Sound TOF"),
+                D("Pilih Sound", {"Sound 1", "Sound 2", "Sound 3", "Sound 4", "Sound 5"}, "Sound 1"),
+                D("Target Aim", {"Head", "Torso", "Legs"}, "Torso"),
+                D("Pistol Target", {"Killer", "Survivor", "Zombie"}, "Killer")
+            }},
+            {name = "Target Menu", controls = {
+                K("Mobile Target Shortcut Key", "T"),
+                T("Show Mobile Target Shortcut"),
+                T("Pistol FOV Mode"),
+                T("Pistol Show FOV"),
+                S("Pistol FOV Radius", 0, 300, 120)
+            }},
+            {name = "Veil", controls = {
+                T("Veil"),
+                K("Veil Hotkey", "V"),
+                T("Smart Predict Mode"),
+                S("Smart Predict Lead", 0, 50, 17),
+                T("Veil Show FOV", true),
+                T("Snapline", true),
+                S("Veil FOV Radius", 0, 300, 120),
+                S("Veil Distance", 0, 500, 150),
+                S("Spear Speed", 0, 200, 165),
+                S("Spear Gravity", 0, 200, 103)
+            }}
+        }
+    },
+
+    {
+        name = "MISC",
+        features = {
+            {name = "Screen", controls = {
+                {type = "label", label = "━━━━━ Camera ━━━━━", height = 28},
+                T("Camera DBD"),
+                S("Camera Height", -10, 10, 0),
+                S("Camera Stiffness", 0, 32, 16),
+                {type = "label", label = "━━━━━ Screen ━━━━━", height = 28},
+                T("Custom Resolution"),
+                S("Resolution Scale", -4, 4, 0)
+            }},
+            {name = "Movement", controls = {
+                T("Noclip"),
+                T("Hit Radius"),
+                S("Fly Speed", 0, 600, 100)
+            }},
+            {name = "Visual Enchancements", controls = {
+                T("Skip Cutscene"),
+                T("FullBright"),
+                S("Fullbright Time", 0, 32, 16)
+            }},
+            {name = "Tools", controls = {
+                T("Fling"),
+                S("Fling Power", 0, 200000, 50000)
+            }},
+            {name = "Spoofer Profil", controls = {
+                T("Fake Name"),
+                {type = "label", label = "━━━━━ Profil Menu ━━━━━", height = 28},
+                T("Fake Profil"),
+                I("Set Level", "", "Isi angka"),
+                I("Set Gears", "", "Isi angka"),
+                I("Set Screws", "", "Isi angka")
+            }},
+            {name = "GUI Mob", controls = {
+                T("Infinite Zoom"),
+                T("Invisible GUI"),
+                T("Sky Changer"),
+                T("Moonwalk GUI"),
+                T("Emote GUI")
+            }},
+            {name = "Jump Mod", controls = {
+                T("High Jump"),
+                S("Jump Power", 0, 600, 50),
+                T("Infinite Jump")
+            }},
+            {name = "Graphics", controls = {
+                T("Smooth HDR Graphics"),
+                T("Unlock FPS"),
+                D("Target FPS", {"60", "120", "240", "Max"}, "60")
+            }}
+        }
+    },
+
+    {
+        name = "Config",
+        features = {
+            {name = "Menu Setting", controls = {
+                S("Corner Radius", 0, 20, 10),
+                T("Open Keybind", true),
+                T("Custom Cursor"),
+                T("Lock GUI"),
+                K("Menu Bind", "RightShift")
+            }},
+            {name = "Theme", controls = {
+                T("Background Color", true),
+                D("Background Color Value", {"Black", "Dark Purple", "Purple", "Navy", "Dark Blue", "Dark Gray"}, "Dark Purple"),
+                T("Main Color", true),
+                D("Main Color Value", {"Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Orange"}, "Purple"),
+                T("Accent Color", true),
+                D("Accent Color Value", {"Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Orange", "Yellow", "White"}, "Purple"),
+                T("Outline Color", true),
+                D("Outline Color Value", {"White", "Purple", "Violet", "Blue", "Cyan", "Pink", "Red", "Green", "Yellow", "Black"}, "White"),
+                T("Font Color", true),
+                D("Font Color Value", {"White", "Light Gray", "Gray", "Purple", "Cyan", "Pink", "Yellow"}, "White"),
+                D("Font Face", {"Fantast", "Goth", "Jura", "Roboto", "RobotoMono", "SourceSans"}, "Roboto"),
+                D("Theme List", {"BBot", "Fatality", "Jester", "Mint", "Tokyo Night", "Ubuntu", "Quartz"}, "Tokyo Night")
+            }},
+            {name = "Developer Bridge", controls = {
+                L("Endpoint bridge: " .. tostring(Bridge.Count) .. " • status: " .. Bridge.LastStatus, 38),
+                B("Bridge Rescan"),
+                B("Bridge Status")
+            }},
+            {name = "Configuration", controls = {
+                I("Config Name", "", "Masukan Nama"),
+                B("Create Config"),
+                D("Config List", {"No Config"}, "No Config"),
+                B("Load Config"),
+                B("Overwrite Config"),
+                B("Delete Config"),
+                B("Refresh List"),
+                B("Set as Autoload"),
+                B("Reset Autoload")
+            }}
+        }
+    },
+
+    {
+        name = "Info",
+        features = {
+            {name = "Profil User", controls = {
+                {type = "profile", label = "User Profile"},
+                {type = "label", label = "Username  •  LocalPlayer", height = 26},
+                {type = "label", label = "Status  •  FREE", height = 26},
+                {type = "label", label = "Expired  •  Tidak tersedia / tidak ditentukan", height = 32}
+            }},
+            {name = "Sosial Media", controls = {
+                {type = "label", label = "Discord  •  discord.gg/JGNVEK6s7", height = 30},
+                B("Join Discord"),
+                {type = "label", label = "TikTok  •  @alettamelindaw", height = 30},
+                B("Open TikTok")
+            }},
+            {name = "Server Info", controls = {
+                {type = "label", label = "Server ID  •  " .. (game.JobId ~= "" and game.JobId or "Studio / Reserved"), height = 32},
+                B("Copy Server ID"),
+                B("Rejoin Server"),
+                B("Server Hop")
+            }},
+            {name = "Script Info", controls = {
+                {type = "label", label = "Developer  •  Aletta", height = 26},
+                {type = "label", label = "Version  •  Beta V1", height = 26},
+                {type = "label", label = "Status  •  Non Stable & Update", height = 32}
+            }},
+            {name = "GUI", controls = {
+                B("Destroy UI")
+            }}
+        }
+    }
+}
+
+-- =========================================================
+-- GUI HELPERS
+-- =========================================================
+
+local function new(className, props, parent)
+    local object = Instance.new(className)
+
+    for key, value in pairs(props or {}) do
+        pcall(function()
+            object[key] = value
+        end)
+    end
+
+    object.Parent = parent
+    return object
+end
+
+local cornerObjects = {}
+
+local function corner(object, radius)
+    local c = new("UICorner", {
+        CornerRadius = UDim.new(0, radius)
+    }, object)
+    table.insert(cornerObjects, c)
+    return c
+end
+
+local function isPress(input)
+    return input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch
+end
+
+local function isMove(input)
+    return input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch
+end
+
+-- =========================================================
+-- MAIN WINDOW
+-- =========================================================
+
+local gui = new("ScreenGui", {
+    Name = "AlettaCreatorGUI",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+}, playerGui)
+
+local window = new("Frame", {
+    Size = UDim2.fromOffset(480, 330),
+    Position = UDim2.fromOffset(120, 80),
+    Visible = false,
+    BackgroundColor3 = BG,
+    BorderSizePixel = 0,
+    ClipsDescendants = true
+}, gui)
+corner(window, 10)
+
+local wStroke = new("UIStroke", {
+    Color = Color3.new(1, 1, 1),
+    Thickness = 2
+}, window)
+
+new("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 60, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 90, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 40, 200))
+    }),
+    Rotation = 45
+}, wStroke)
+
+--// Purple background + Aletta logo composition
+local bgImg = new("ImageLabel", {
+    Name = "AlettaBackgroundArt",
+    Image = BACKGROUND_ID,
+    ImageTransparency = 0.12,
+    ScaleType = Enum.ScaleType.Crop,
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(1, 1),
+    Active = false,
+    ZIndex = 0
+}, window)
+corner(bgImg, 10)
+
+local bgDark = new("Frame", {
+    Name = "AlettaBackgroundTint",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = Color3.fromRGB(8, 3, 18),
+    BackgroundTransparency = 0.34,
+    BorderSizePixel = 0,
+    Active = false,
+    ZIndex = 1
+}, window)
+corner(bgDark, 10)
+
+local top = new("Frame", {
+    Size = UDim2.new(1, 0, 0, 48),
+    BackgroundTransparency = 1,
+    ZIndex = 10
+}, window)
+
+local headerLogo = new("ImageLabel", {
+    Name = "AlettaHeaderLogo",
+    Image = HEADER_LOGO_ID,
+    ScaleType = Enum.ScaleType.Fit,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(2, -5),
+    Size = UDim2.fromOffset(235, 58),
+    ZIndex = 11
+}, top)
+
+local headerTitle = new("TextLabel", {
+    Name = "AlettaCreatorTitle",
+    Text = "Aletta Creator",
+    Font = Enum.Font.GothamBlack,
+    TextSize = 18,
+    TextColor3 = Color3.fromRGB(235, 205, 255),
+    TextStrokeColor3 = Color3.fromRGB(70, 20, 120),
+    TextStrokeTransparency = 0.15,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(205, 7),
+    Size = UDim2.fromOffset(120, 34),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 12
+}, top)
+
+new("TextLabel", {
+    Text = "Violence District - Fremium Edition",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    TextColor3 = TEXT,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(320, 7),
+    Size = UDim2.fromOffset(125, 34),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextWrapped = true,
+    ZIndex = 12
+}, top)
+
+local minBtn = new("TextButton", {
+    Text = "–",
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
+    TextColor3 = TEXT,
+    BackgroundColor3 = PANEL,
+    BackgroundTransparency = 0.3,
+    Size = UDim2.fromOffset(28, 26),
+    Position = UDim2.new(1, -38, 0, 7)
+}, top)
+corner(minBtn, 6)
+
+local side = new("ScrollingFrame", {
+    Position = UDim2.fromOffset(8, 48),
+    Size = UDim2.fromOffset(150, 274),
+    BackgroundTransparency = 1,
+    ZIndex = 10,
+    ScrollBarThickness = 0,
+    BorderSizePixel = 0,
+    CanvasSize = UDim2.new(),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y
+}, window)
+
+new("UIListLayout", {
+    Padding = UDim.new(0, 4),
+    SortOrder = Enum.SortOrder.LayoutOrder
+}, side)
+
+-- Tidak menggunakan emoji search.
+local search = new("TextBox", {
+    PlaceholderText = "Search feature...",
+    Text = "",
+    Font = Enum.Font.Gotham,
+    TextSize = 13,
+    TextColor3 = TEXT,
+    PlaceholderColor3 = Color3.fromRGB(150, 150, 150),
+    BackgroundColor3 = PANEL,
+    BackgroundTransparency = 0.3,
+    Size = UDim2.new(1, 0, 0, 32),
+    ClearTextOnFocus = false,
+    LayoutOrder = -1
+}, side)
+corner(search, 6)
+
+local title = new("TextLabel", {
+    Text = "",
+    Font = Enum.Font.GothamBold,
+    TextSize = 11,
+    TextColor3 = TEXT,
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(172, 48),
+    Size = UDim2.fromOffset(290, 28),
+    TextXAlignment = Enum.TextXAlignment.Left,
+    ZIndex = 10
+}, window)
+
+new("Frame", {
+    Position = UDim2.fromOffset(166, 52),
+    Size = UDim2.fromOffset(3, 20),
+    BackgroundColor3 = ACCENT,
+    BorderSizePixel = 0
+}, window)
+
+local popup = new("ScrollingFrame", {
+    Size = UDim2.fromOffset(150, 40),
+    Position = UDim2.fromOffset(322, 84),
+    BackgroundColor3 = Color3.fromRGB(16, 12, 26),
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 20,
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = ACCENT,
+    CanvasSize = UDim2.new(),
+    AutomaticCanvasSize = Enum.AutomaticSize.Y
+}, window)
+corner(popup, 8)
+new("UIStroke", {Color = ACCENT, Thickness = 1}, popup)
+new("UIListLayout", {Padding = UDim.new(0, 2)}, popup)
+new("UIPadding", {
+    PaddingTop = UDim.new(0, 6),
+    PaddingBottom = UDim.new(0, 6),
+    PaddingLeft = UDim.new(0, 6),
+    PaddingRight = UDim.new(0, 6)
+}, popup)
+
+local popupOwner
+
+local function closePopup()
+    popup.Visible = false
+    popupOwner = nil
+end
+
+local function openDropdown(owner, options, current, onPick)
+    if popup.Visible and popupOwner == owner then
+        closePopup()
+        return
+    end
+
+    for _, child in ipairs(popup:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+
+    for _, option in ipairs(options) do
+        local button = new("TextButton", {
+            Text = "  " .. tostring(option),
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextColor3 = option == current and TEXT or GRAY,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundColor3 = ACCENT,
+            BackgroundTransparency = option == current and 0.6 or 1,
+            Size = UDim2.new(1, -4, 0, 30),
+            ZIndex = 21
+        }, popup)
+
+        corner(button, 6)
+
+        button.Activated:Connect(function()
+            onPick(option)
+            closePopup()
+        end)
+    end
+
+    local height = math.min(#options * 32 + 12, 190)
+    local rel = owner.AbsolutePosition - window.AbsolutePosition
+    local x = math.clamp(
+        rel.X + owner.AbsoluteSize.X - 150,
+        8,
+        math.max(8, window.AbsoluteSize.X - 158)
+    )
+    local y = rel.Y + owner.AbsoluteSize.Y + 2
+
+    if y + height > window.AbsoluteSize.Y - 4 then
+        y = rel.Y - height - 2
+    end
+
+    popup.Position = UDim2.fromOffset(x, math.max(y, 44))
+    popup.Size = UDim2.fromOffset(150, height)
+    popup.CanvasPosition = Vector2.zero
+    popupOwner = owner
+    popup.Visible = true
+end
+
+local pages = {}
+local tabButtons = {}
+local allRows = {}
+
+local function showTab(name)
+    closePopup()
+
+    for tabName, page in pairs(pages) do
+        page.Visible = tabName == name
+    end
+
+    for tabName, button in pairs(tabButtons) do
+        button.TextColor3 = tabName == name and TEXT or GRAY
+    end
+
+    title.Text = name
+end
+
+local function commit(label, value)
+    Values[label] = value
+
+    local hook = Hooks[label]
+    if hook then
+        task.spawn(function()
+            local ok, err = pcall(hook, value)
+            if not ok then
+                warn("[Aletta] " .. tostring(label) .. ": " .. tostring(err))
+            end
+        end)
+    end
+end
+
+local function makeControl(parent, control, order)
+    local frame = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 38),
+        BackgroundTransparency = 1,
+        LayoutOrder = order
+    }, parent)
+
+    Controls[control.label] = Controls[control.label] or {}
+
+    if control.type ~= "button"
+        and control.type ~= "label"
+        and control.type ~= "slider" then
+
+        new("TextLabel", {
+            Text = "   " .. control.label,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = Color3.fromRGB(220, 220, 220),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -118, 1, 0),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextWrapped = true
+        }, frame)
+    end
+
+    if control.type == "toggle" then
+        local state = control.default == true
+        Values[control.label] = state
+
+        local switch = new("TextButton", {
+            Text = "",
+            Size = UDim2.fromOffset(40, 20),
+            Position = UDim2.new(1, -52, 0.5, -10),
+            AutoButtonColor = false,
+            BackgroundColor3 = state and ACCENT or OFF
+        }, frame)
+        corner(switch, 10)
+
+        local knob = new("Frame", {
+            Size = UDim2.fromOffset(16, 16),
+            Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2),
+            BackgroundColor3 = TEXT
+        }, switch)
+        corner(knob, 8)
+
+        local function setState(value, runHook)
+            state = value == true
+
+            TweenService:Create(
+                switch,
+                TweenInfo.new(0.15),
+                {BackgroundColor3 = state and ACCENT or OFF}
+            ):Play()
+
+            TweenService:Create(
+                knob,
+                TweenInfo.new(0.15),
+                {Position = state and UDim2.fromOffset(22, 2) or UDim2.fromOffset(2, 2)}
+            ):Play()
+
+            Values[control.label] = state
+
+            if runHook then
+                commit(control.label, state)
+            end
+        end
+
+        Controls[control.label].set = function(value)
+            setState(value, true)
+        end
+
+        switch.Activated:Connect(function()
+            setState(not state, true)
+        end)
+
+    elseif control.type == "input" then
+        Values[control.label] = tonumber(control.default) or control.default
+
+        local box = new("TextBox", {
+            Text = control.default,
+            PlaceholderText = control.placeholder or "",
+            PlaceholderColor3 = Color3.fromRGB(140, 140, 140),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = TEXT,
+            BackgroundColor3 = FIELD,
+            Size = UDim2.fromOffset(96, 26),
+            Position = UDim2.new(1, -106, 0.5, -13),
+            ClearTextOnFocus = false,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+        corner(box, 6)
+
+        Controls[control.label].set = function(value)
+            box.Text = tostring(value)
+            commit(control.label, tonumber(value) or value)
+        end
+
+        box.FocusLost:Connect(function()
+            commit(control.label, tonumber(box.Text) or box.Text)
+        end)
+
+    elseif control.type == "hotkey" then
+        local keyName = tostring(control.default or "Unknown")
+        local key = Enum.KeyCode[keyName] or Enum.KeyCode.Unknown
+        Values[control.label] = key
+
+        local button = new("TextButton", {
+            Text = key.Name,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = TEXT,
+            BackgroundColor3 = FIELD,
+            Size = UDim2.fromOffset(96, 26),
+            Position = UDim2.new(1, -106, 0.5, -13)
+        }, frame)
+        corner(button, 6)
+
+        local listening = false
+
+        button.Activated:Connect(function()
+            if listening then return end
+
+            listening = true
+            button.Text = "..."
+
+            local connection
+            connection = UIS.InputBegan:Connect(function(input, gameProcessed)
+                if gameProcessed then return end
+
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    button.Text = input.KeyCode.Name
+                    commit(control.label, input.KeyCode)
+                    listening = false
+
+                    if connection then
+                        connection:Disconnect()
+                        connection = nil
+                    end
+                end
+            end)
+        end)
+
+        Controls[control.label].set = function(value)
+            local newKey
+
+            if typeof(value) == "EnumItem" then
+                newKey = value
+            else
+                newKey = Enum.KeyCode[tostring(value)] or Enum.KeyCode.Unknown
+            end
+
+            button.Text = newKey.Name
+            commit(control.label, newKey)
+        end
+
+    elseif control.type == "dropdown" then
+        Values[control.label] = control.default
+
+        local button = new("TextButton", {
+            Text = tostring(control.default),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = TEXT,
+            BackgroundColor3 = FIELD,
+            Size = UDim2.fromOffset(96, 26),
+            Position = UDim2.new(1, -106, 0.5, -13),
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+        corner(button, 6)
+
+        button.Activated:Connect(function()
+            openDropdown(
+                button,
+                control.options,
+                Values[control.label],
+                function(value)
+                    button.Text = tostring(value)
+                    commit(control.label, value)
+                end
+            )
+        end)
+
+        Controls[control.label].set = function(value)
+            button.Text = tostring(value)
+            commit(control.label, value)
+        end
+
+        Controls[control.label].setOptions = function(options, current)
+            control.options = options or control.options
+            if current ~= nil then
+                button.Text = tostring(current)
+                Values[control.label] = current
+            end
+        end
+
+    elseif control.type == "slider" then
+        frame.Size = UDim2.new(1, 0, 0, 48)
+        Values[control.label] = control.default
+
+        new("TextLabel", {
+            Text = "   " .. control.label,
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = Color3.fromRGB(220, 220, 220),
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -80, 0, 24),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+
+        local valueLabel = new("TextLabel", {
+            Text = tostring(control.default) .. "/" .. tostring(control.max),
+            Font = Enum.Font.GothamBold,
+            TextSize = 12,
+            TextColor3 = GRAY,
+            BackgroundTransparency = 1,
+            Size = UDim2.fromOffset(70, 24),
+            Position = UDim2.new(1, -78, 0, 0),
+            TextXAlignment = Enum.TextXAlignment.Right
+        }, frame)
+
+        local track = new("TextButton", {
+            Text = "",
+            AutoButtonColor = false,
+            BackgroundColor3 = FIELD,
+            Size = UDim2.new(1, -24, 0, 8),
+            Position = UDim2.new(0, 12, 0, 32)
+        }, frame)
+        corner(track, 4)
+
+        local fill = new("Frame", {
+            BackgroundColor3 = ACCENT,
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(
+                (control.default - control.min) / math.max(1, control.max - control.min),
+                1
+            )
+        }, track)
+        corner(fill, 4)
+
+        local function setValue(value, runHook)
+            local number = tonumber(value) or control.default
+            number = math.clamp(
+                math.floor(number + 0.5),
+                control.min,
+                control.max
+            )
+
+            Values[control.label] = number
+
+            local alpha = (number - control.min) / math.max(1, control.max - control.min)
+            fill.Size = UDim2.fromScale(alpha, 1)
+            valueLabel.Text = tostring(number) .. "/" .. tostring(control.max)
+
+            if runHook then
+                commit(control.label, number)
+            end
+        end
+
+        Controls[control.label].set = function(value)
+            setValue(value, true)
+        end
+
+        local dragging = false
+
+        local function setFromX(x)
+            local width = math.max(1, track.AbsoluteSize.X)
+            local alpha = math.clamp(
+                (x - track.AbsolutePosition.X) / width,
+                0,
+                1
+            )
+
+            setValue(
+                control.min + alpha * (control.max - control.min),
+                true
+            )
+        end
+
+        track.InputBegan:Connect(function(input)
+            if isPress(input) then
+                dragging = true
+                setFromX(input.Position.X)
+            end
+        end)
+
+        UIS.InputChanged:Connect(function(input)
+            if dragging and isMove(input) then
+                setFromX(input.Position.X)
+            end
+        end)
+
+        UIS.InputEnded:Connect(function(input)
+            if isPress(input) then
+                dragging = false
+            end
+        end)
+
+    elseif control.type == "profile" then
+        frame.Size = UDim2.new(1, 0, 0, 92)
+
+        local avatar = new("ImageLabel", {
+            Name = "UserAvatar",
+            BackgroundColor3 = FIELD,
+            BackgroundTransparency = 0,
+            Size = UDim2.fromOffset(72, 72),
+            Position = UDim2.fromOffset(8, 8),
+            Image = "",
+            ScaleType = Enum.ScaleType.Crop
+        }, frame)
+        corner(avatar, 36)
+
+        local nameLabel = new("TextLabel", {
+            Text = player.DisplayName,
+            Font = Enum.Font.GothamBold,
+            TextSize = 15,
+            TextColor3 = TEXT,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 12),
+            Size = UDim2.new(1, -100, 0, 24),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+
+        local usernameLabel = new("TextLabel", {
+            Text = "@" .. player.Name,
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            TextColor3 = GRAY,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 38),
+            Size = UDim2.new(1, -100, 0, 20),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd
+        }, frame)
+
+        local statusLabel = new("TextLabel", {
+            Text = "FREE  •  Beta V1",
+            Font = Enum.Font.GothamBold,
+            TextSize = 11,
+            TextColor3 = ACCENT,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(92, 60),
+            Size = UDim2.new(1, -100, 0, 18),
+            TextXAlignment = Enum.TextXAlignment.Left
+        }, frame)
+
+        task.spawn(function()
+            local ok, content = pcall(function()
+                return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+            end)
+            if ok and content then
+                avatar.Image = content
+            end
+        end)
+
+    elseif control.type == "button" then
+        frame.Size = UDim2.new(1, 0, 0, 38)
+
+        local button = new("TextButton", {
+            Text = control.label,
+            Font = Enum.Font.GothamBold,
+            TextSize = 13,
+            TextColor3 = TEXT,
+            BackgroundColor3 = FIELD,
+            Size = UDim2.new(1, -16, 0, 32),
+            Position = UDim2.fromOffset(8, 3)
+        }, frame)
+        corner(button, 6)
+
+        button.Activated:Connect(function()
+            local hook = Hooks[control.label]
+            if hook then
+                task.spawn(function()
+                    local ok, err = pcall(hook)
+                    if not ok then
+                        warn("[Aletta] " .. control.label .. ": " .. tostring(err))
+                    end
+                end)
+            end
+        end)
+
+    elseif control.type == "label" then
+        frame.Size = UDim2.new(1, 0, 0, control.height or 30)
+
+        local note = new("TextLabel", {
+            Text = control.label,
+            Font = Enum.Font.Gotham,
+            TextSize = 11,
+            TextColor3 = GRAY,
+            BackgroundTransparency = 1,
+            Size = UDim2.fromScale(1, 1),
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Top,
+            TextWrapped = true
+        }, frame)
+
+        new("UIPadding", {
+            PaddingLeft = UDim.new(0, 12),
+            PaddingRight = UDim.new(0, 12),
+            PaddingTop = UDim.new(0, 6)
+        }, note)
+    end
+end
+
+local function makeRow(page, feature)
+    local row = new("Frame", {
+        Size = UDim2.new(1, -6, 0, 40),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundColor3 = PANEL,
+        BackgroundTransparency = 0.3,
+        BorderSizePixel = 0
+    }, page)
+    corner(row, 6)
+
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, row)
+
+    -- Tidak ada emoji LOCK di sini.
+    local head = new("TextButton", {
+        Text = "   " .. feature.name,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextColor3 = TEXT,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 40),
+        LayoutOrder = 1,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, row)
+
+    new("TextLabel", {
+        Text = "v",
+        TextColor3 = GRAY,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(32, 40),
+        Position = UDim2.new(1, -36, 0, 0)
+    }, head)
+
+    local body = new("Frame", {
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Visible = false,
+        LayoutOrder = 2
+    }, row)
+
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, body)
+
+    new("UIPadding", {
+        PaddingBottom = UDim.new(0, 6)
+    }, body)
+
+    for i, control in ipairs(feature.controls) do
+        makeControl(body, control, i)
+    end
+
+    head.Activated:Connect(function()
+        closePopup()
+        body.Visible = not body.Visible
+    end)
+
+    table.insert(allRows, {
+        frame = row,
+        name = feature.name:lower(),
+        page = page
+    })
+end
+
+for index, tab in ipairs(CONFIG) do
+    local button = new("TextButton", {
+        Text = "  " .. tab.name,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextColor3 = TEXT,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 36),
+        LayoutOrder = index,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    }, side)
+
+    tabButtons[tab.name] = button
+
+    local page = new("ScrollingFrame", {
+        Position = UDim2.fromOffset(166, 82),
+        Size = UDim2.fromOffset(306, 240),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = ACCENT,
+        Visible = false,
+        CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
+    }, window)
+
+    new("UIListLayout", {
+        Padding = UDim.new(0, 6)
+    }, page)
+
+    pages[tab.name] = page
+
+    for _, feature in ipairs(tab.features) do
+        makeRow(page, feature)
+    end
+
+    button.Activated:Connect(function()
+        showTab(tab.name)
+    end)
+end
+
+showTab(CONFIG[1].name)
+
+for key, value in pairs(Values) do
+    Defaults[key] = value
+end
+
+search:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = search.Text:lower()
+
+    for _, row in ipairs(allRows) do
+        row.frame.Visible = query == "" or row.name:find(query, 1, true) ~= nil
+    end
+end)
+
+-- =========================================================
+-- OPEN/CLOSE BUTTON DENGAN ASSET 111827431469508
+-- =========================================================
+
+local icon = new("ImageButton", {
+    Name = "AlettaFloatingLogo",
+    Image = LOGO_ID,
+    ScaleType = Enum.ScaleType.Fit,
+    BackgroundColor3 = Color3.fromRGB(18, 8, 32),
+    BackgroundTransparency = 0,
+    Size = UDim2.fromOffset(44, 44),
+    Position = UDim2.fromOffset(18, 120),
+    Visible = true,
+    Active = true,
+    AutoButtonColor = false,
+    ZIndex = 100
+}, gui)
+corner(icon, 22)
+
+local iconStroke = new("UIStroke", {
+    Color = ACCENT,
+    Thickness = 2.5
+}, icon)
+
+new("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(110, 50, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(230, 110, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(90, 40, 200))
+    }),
+    Rotation = 45
+}, iconStroke)
+
+local function draggable(handle, target, onTap)
+    local dragging = false
+    local moved = false
+    local startMouse
+    local startPosition
+
+    handle.InputBegan:Connect(function(input)
+        if Values["Lock GUI"] then return end
+        if not isPress(input) then return end
+
+        dragging = true
+        moved = false
+        startMouse = input.Position
+        startPosition = target.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+
+                if not moved and onTap then
+                    onTap()
+                end
+            end
+        end)
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if not dragging or not isMove(input) then return end
+
+        local delta = input.Position - startMouse
+
+        if delta.Magnitude > 6 then
+            moved = true
+        end
+
+        if moved then
+            target.Position = UDim2.fromOffset(
+                startPosition.X.Offset + delta.X,
+                startPosition.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+local loadingGate = true
+
+local function minimize()
+    closePopup()
+    window.Visible = false
+    icon.Visible = true
+end
+
+local function restore()
+    window.Visible = true
+    icon.Visible = true
+end
+
+minBtn.Activated:Connect(minimize)
+icon.Activated:Connect(function()
+    if loadingGate then return end
+    if window.Visible then
+        minimize()
+    else
+        restore()
+    end
+end)
+
+-- Panel dan logo mempunyai posisi/drag masing-masing.
+draggable(top, window)
+draggable(icon, icon)
+
+-- =========================================================
+-- LOAD NOTIFICATION
+-- =========================================================
+
+local function showLoadNotification()
+    local notification = new("Frame", {
+        Name = "AlettaLoadNotification",
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -18, 1, -18),
+        Size = UDim2.fromOffset(250, 78),
+        BackgroundColor3 = Color3.fromRGB(10, 10, 12),
+        BackgroundTransparency = 0.14,
+        BorderSizePixel = 0,
+        ZIndex = 300,
+    }, gui)
+    corner(notification, 8)
+
+    new("UIStroke", {
+        Color = ACCENT,
+        Thickness = 1.5,
+        Transparency = 0.35,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Sukses",
+        Font = Enum.Font.GothamBold,
+        TextSize = 17,
+        TextColor3 = TEXT,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(8, 7),
+        Size = UDim2.new(1, -16, 0, 22),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Berhasil memuat script untuk: [CURE]",
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextColor3 = TEXT,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(8, 30),
+        Size = UDim2.new(1, -16, 0, 20),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    new("TextLabel", {
+        Text = "Distrik Kekerasan",
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextColor3 = GRAY,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(8, 51),
+        Size = UDim2.new(1, -16, 0, 18),
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 301,
+    }, notification)
+
+    local loadSound = Instance.new("Sound")
+    loadSound.Name = "AlettaLoadSound"
+    loadSound.SoundId = LOAD_SOUND_ID
+    loadSound.Volume = 1
+    loadSound.Parent = SoundService
+
+    task.spawn(function()
+        local ok = pcall(function()
+            ContentProvider:PreloadAsync({loadSound})
+        end)
+        if loadSound.Parent then
+            pcall(function()
+                loadSound:Play()
+            end)
+        end
+    end)
+
+    -- Panel baru muncul 2 detik setelah notifikasi tampil.
+    task.delay(2, function()
+        if window and window.Parent then
+            window.Visible = true
+            icon.Visible = true
+            loadingGate = false
+        end
+    end)
+
+    task.delay(4, function()
+        if notification and notification.Parent then
+            local tween = TweenService:Create(notification, TweenInfo.new(0.25), {BackgroundTransparency = 1})
+            tween:Play()
+            task.delay(0.3, function()
+                if notification and notification.Parent then notification:Destroy() end
+            end)
+        end
+    end)
+end
+
+-- =========================================================
+-- LOCAL TEST FEATURES
+-- =========================================================
+
+local originalWalkSpeed = 16
+local originalFOV = camera and camera.FieldOfView or 70
+
+local originalLighting = {
+    Brightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd,
+    FogStart = Lighting.FogStart,
+    GlobalShadows = Lighting.GlobalShadows
+}
+
+local particleCache = {}
+local crosshairGui
+local fpsLabel
+local espFolder
+local espGui
+local mwGui
+local mwButton
+
+local function character()
+    return player.Character
+end
+
+local function humanoid()
+    local c = character()
+    return c and c:FindFirstChildOfClass("Humanoid")
+end
+
+local function root()
+    local c = character()
+    return c and c:FindFirstChild("HumanoidRootPart")
+end
+
+-- =========================================================
+-- MOVEMENT / CAMERA / LIGHTING
+-- =========================================================
+
+Hooks["Enable Run Speed"] = function(on)
+    local h = humanoid()
+    if not h then return end
+
+    if on then
+        h.WalkSpeed = tonumber(Values["Speed Value"]) or 20
+    else
+        h.WalkSpeed = originalWalkSpeed
+    end
+end
+
+Hooks["Speed Value"] = function(value)
+    if not Values["Enable Run Speed"] then return end
+
+    local h = humanoid()
+    if h then
+        h.WalkSpeed = tonumber(value) or 20
+    end
+end
+
+Hooks["Unlimited Zoom"] = function(on)
+    player.CameraMaxZoomDistance = on and 1000 or 128
+end
+
+Hooks["Auto Sprint Mobile"] = function(on)
+    local h = humanoid()
+    if not h then return end
+
+    -- Developer/test behavior: keep sprint state local and restore the
+    -- original WalkSpeed when disabled. Server-side movement validation
+    -- remains authoritative.
+    if on then
+        if Values["SpeedBoost"] then
+            h.WalkSpeed = tonumber(Values["Speed Boost Value"]) or h.WalkSpeed
+        else
+            h.WalkSpeed = math.max(h.WalkSpeed, 20)
+        end
+    else
+        h.WalkSpeed = originalWalkSpeed
+    end
+end
+
+Hooks["Auto Skill Check Mode"] = function(mode)
+    Values["Auto Skill Check Mode"] = tostring(mode or "Legit")
+    -- Mode selection is stored for the game's legitimate skill-check
+    -- controller. No remote validation is bypassed here.
+end
+
+Hooks["Auto Skill Check"] = function(on)
+    Values["Auto Skill Check"] = on == true
+end
+
+Hooks["Custom FOV"] = function(on)
+    camera = workspace.CurrentCamera or camera
+    if not camera then return end
+
+    if on then
+        camera.FieldOfView = tonumber(Values["Field of View"]) or 70
+    else
+        camera.FieldOfView = originalFOV
+    end
+end
+
+Hooks["Field of View"] = function(value)
+    if not Values["Custom FOV"] then return end
+
+    camera = workspace.CurrentCamera or camera
+    if camera then
+        camera.FieldOfView = tonumber(value) or 70
+    end
+end
+
+Hooks["Full Bright"] = function(on)
+    if on then
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+    else
+        Lighting.Brightness = originalLighting.Brightness
+        Lighting.ClockTime = originalLighting.ClockTime
+    end
+end
+
+Hooks["No Fog"] = function(on)
+    if on then
+        Lighting.FogStart = 0
+        Lighting.FogEnd = 1000000
+    else
+        Lighting.FogStart = originalLighting.FogStart
+        Lighting.FogEnd = originalLighting.FogEnd
+    end
+end
+
+Hooks["Disable Shadows"] = function(on)
+    Lighting.GlobalShadows = not on
+end
+
+Hooks["No Clip"] = function(on)
+    if not on then return end
+
+    FeatureManager:Connect("No Clip", RunService.Stepped, function()
+        local c = character()
+        if not c then return end
+
+        for _, part in ipairs(c:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+
+Hooks["Disable Particles"] = function(on)
+    if on then
+        particleCache = {}
+
+        for _, object in ipairs(workspace:GetDescendants()) do
+            if object:IsA("ParticleEmitter")
+                or object:IsA("Trail")
+                or object:IsA("Beam") then
+
+                particleCache[object] = object.Enabled
+                object.Enabled = false
+            end
+        end
+    else
+        for object, state in pairs(particleCache) do
+            if object and object.Parent then
+                object.Enabled = state
+            end
+        end
+
+        particleCache = {}
+    end
+end
+
+Hooks["Lower Graphics"] = function(on)
+    if not on then return end
+
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    end)
+end
+
+Hooks["FPS Unlocker"] = function()
+    -- Roblox client mengontrol frame cap.
+end
+
+Hooks["FPS Cap Value"] = function()
+    -- Disimpan sebagai setting GUI.
+end
+
+-- =========================================================
+-- FPS COUNTER
+-- =========================================================
+
+local fpsFrames = 0
+local fpsTime = 0
+
+Hooks["FPS Counter"] = function(on)
+    if on then
+        if fpsLabel then
+            fpsLabel:Destroy()
+            fpsLabel = nil
+        end
+
+        fpsLabel = new("TextLabel", {
+            Name = "FPSCounter",
+            Text = "FPS: --",
+            Font = Enum.Font.GothamBold,
+            TextSize = 14,
+            TextColor3 = TEXT,
+            BackgroundColor3 = PANEL,
+            BackgroundTransparency = 0.2,
+            Size = UDim2.fromOffset(100, 28),
+            Position = UDim2.fromOffset(8, 8),
+            ZIndex = 100
+        }, gui)
+        corner(fpsLabel, 6)
+
+        fpsFrames = 0
+        fpsTime = 0
+
+        FeatureManager:Connect("FPS Counter", RunService.RenderStepped, function(dt)
+            if not fpsLabel then return end
+
+            fpsFrames += 1
+            fpsTime += dt
+
+            if fpsTime >= 0.5 then
+                fpsLabel.Text = "FPS: " .. math.floor(fpsFrames / fpsTime)
+                fpsFrames = 0
+                fpsTime = 0
+            end
+        end)
+    else
+        if fpsLabel then
+            fpsLabel:Destroy()
+            fpsLabel = nil
+        end
+    end
+end
+
+-- =========================================================
+-- CROSSHAIR
+-- =========================================================
+
+local function destroyCrosshair()
+    if crosshairGui then
+        crosshairGui:Destroy()
+        crosshairGui = nil
+    end
+end
+
+local function makeCrosshair()
+    destroyCrosshair()
+
+    crosshairGui = new("ScreenGui", {
+        Name = "AlettaCrosshair",
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Global
+    }, playerGui)
+
+    local frame = new("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(60, 60),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(
+            0.5,
+            tonumber(Values["Crosshair X Offset"]) or 0,
+            0.5,
+            tonumber(Values["Crosshair Y Offset"]) or 0
+        )
+    }, crosshairGui)
+
+    local typeName = Values["Crosshair Type"] or "Cross"
+    local size = tonumber(Values["Crosshair Size"]) or 4
+
+    local colorMap = {
+        Green = Color3.fromRGB(80, 255, 120),
+        Cyan = Color3.fromRGB(60, 220, 255),
+        Red = Color3.fromRGB(255, 70, 70),
+        Yellow = Color3.fromRGB(255, 220, 50),
+        Orange = Color3.fromRGB(255, 150, 50),
+        Blue = Color3.fromRGB(80, 130, 255),
+        Purple = ACCENT,
+        White = TEXT,
+        Pink = Color3.fromRGB(255, 100, 200)
+    }
+
+    local color = colorMap[Values["Crosshair Color"]] or colorMap.Green
+
+    if typeName == "Dot" then
+        local dot = new("Frame", {
+            Size = UDim2.fromOffset(size, size),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            BackgroundColor3 = color,
+            BorderSizePixel = 0
+        }, frame)
+        corner(dot, size)
+
+    elseif typeName == "Cross" then
+        new("Frame", {
+            Size = UDim2.fromOffset(size * 4, size),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            BackgroundColor3 = color,
+            BorderSizePixel = 0
+        }, frame)
+
+        new("Frame", {
+            Size = UDim2.fromOffset(size, size * 4),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            BackgroundColor3 = color,
+            BorderSizePixel = 0
+        }, frame)
+
+    elseif typeName == "Circle" then
+        local circle = new("Frame", {
+            Size = UDim2.fromOffset(size * 8, size * 8),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(0.5, 0.5),
+            BackgroundTransparency = 1
+        }, frame)
+        corner(circle, size * 4)
+
+        new("UIStroke", {
+            Color = color,
+            Thickness = math.max(1, math.floor(size / 2))
+        }, circle)
+    end
+end
+
+Hooks["Crosshair"] = function(on)
+    if on then
+        makeCrosshair()
+    else
+        destroyCrosshair()
+    end
+end
+
+Hooks["Crosshair Type"] = function()
+    if Values["Crosshair"] then makeCrosshair() end
+end
+
+Hooks["Crosshair Color"] = function()
+    if Values["Crosshair"] then makeCrosshair() end
+end
+
+Hooks["Crosshair Size"] = function()
+    if Values["Crosshair"] then makeCrosshair() end
+end
+
+Hooks["Crosshair X Offset"] = function()
+    if Values["Crosshair"] then makeCrosshair() end
+end
+
+Hooks["Crosshair Y Offset"] = function()
+    if Values["Crosshair"] then makeCrosshair() end
+end
+
+-- =========================================================
+-- LOCAL AIM TARGET TEST
+-- =========================================================
+
+local AimLock = {
+    target = nil
+}
+
+_G.AlettaAimLock = AimLock
+
+local function aimPartFor(characterModel)
+    local targetMode = Values["Target Aim"] or "Torso"
+
+    if targetMode == "Head" then
+        return characterModel:FindFirstChild("Head")
+            or characterModel:FindFirstChild("HumanoidRootPart")
+    elseif targetMode == "Legs" then
+        return characterModel:FindFirstChild("LeftFoot")
+            or characterModel:FindFirstChild("HumanoidRootPart")
+    end
+
+    return characterModel:FindFirstChild("UpperTorso")
+        or characterModel:FindFirstChild("Torso")
+        or characterModel:FindFirstChild("HumanoidRootPart")
+end
+
+local function hasLineOfSight(origin, part, targetCharacter)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {character(), targetCharacter}
+
+    local result = workspace:Raycast(
+        origin,
+        part.Position - origin,
+        params
+    )
+
+    return result == nil
+end
+
+local function getAimTarget()
+    camera = workspace.CurrentCamera or camera
+    if not camera then return nil end
+
+    local myRoot = root()
+    if not myRoot then return nil end
+
+    local maxPixels = tonumber(Values["Pistol FOV Radius"]) or 120
+    local maxWorldDistance = 80
+    local targetMode = Values["Pistol Target"] or "Killer"
+
+    local bestPart
+    local bestScore = math.huge
+
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        if targetPlayer ~= player then
+            local targetCharacter = targetPlayer.Character
+            local targetHumanoid = targetCharacter
+                and targetCharacter:FindFirstChildOfClass("Humanoid")
+            local targetRoot = targetCharacter
+                and targetCharacter:FindFirstChild("HumanoidRootPart")
+
+            if targetCharacter and targetHumanoid and targetRoot
+                and targetHumanoid.Health > 0 then
+
+                local validRole = true
+                local role = targetCharacter:GetAttribute("Role")
+                    or targetPlayer:GetAttribute("Role")
+
+                if targetMode == "Killer" then
+                    validRole = role == "Killer"
+                elseif targetMode == "Survivor" then
+                    validRole = role == "Survivor"
+                elseif targetMode == "Zombie" then
+                    validRole = role == "Zombie"
+                        or role == "Zombie Dummy"
+                        or role == "SCP"
+                end
+
+                if validRole then
+                    local part = aimPartFor(targetCharacter)
+
+                    if part then
+                        local worldDistance =
+                            (targetRoot.Position - myRoot.Position).Magnitude
+
+                        local screen, onScreen =
+                            camera:WorldToViewportPoint(part.Position)
+
+                        if onScreen and worldDistance <= maxWorldDistance then
+                            local center =
+                                Vector2.new(
+                                    camera.ViewportSize.X / 2,
+                                    camera.ViewportSize.Y / 2
+                                )
+
+                            local score =
+                                (Vector2.new(screen.X, screen.Y) - center).Magnitude
+
+                            if score <= maxPixels
+                                and score < bestScore
+                                and hasLineOfSight(
+                                    camera.CFrame.Position,
+                                    part,
+                                    targetCharacter
+                                ) then
+
+                                bestScore = score
+                                bestPart = part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return bestPart
+end
+
+Hooks["Aim Lock"] = function(on)
+    if on then
+        FeatureManager:Connect("Aim Lock", RunService.RenderStepped, function()
+            AimLock.target = getAimTarget()
+        end)
+    else
+        AimLock.target = nil
+    end
+end
+
+function AimLock.GetTarget()
+    local target = AimLock.target
+
+    if target and target.Parent then
+        local h = target.Parent:FindFirstChildOfClass("Humanoid")
+        if h and h.Health > 0 then
+            return target
+        end
+    end
+
+    return nil
+end
+
+function AimLock.Clear()
+    AimLock.target = nil
+end
+
+-- =========================================================
+-- TOF SOUND SET
+-- =========================================================
+
+local TOF_SOUND_IDS = {
+    ["Sound 1"] = "rbxassetid://139664063118995",
+    ["Sound 2"] = "rbxassetid://115463636107842",
+    ["Sound 3"] = "rbxassetid://133644366455575",
+    ["Sound 4"] = "rbxassetid://114932123071822",
+    ["Sound 5"] = "rbxassetid://83971611350325",
+}
+
+local tofSound
+
+local function playTOFSound()
+    local selected = Values["Pilih Sound"] or "Sound 1"
+    local soundId = TOF_SOUND_IDS[selected] or TOF_SOUND_IDS["Sound 1"]
+
+    if not tofSound or not tofSound.Parent then
+        tofSound = Instance.new("Sound")
+        tofSound.Name = "AlettaTOFSound"
+        tofSound.Volume = 1
+        tofSound.Parent = SoundService
+    end
+
+    tofSound.SoundId = soundId
+    tofSound.TimePosition = 0
+    task.spawn(function()
+        pcall(function()
+            ContentProvider:PreloadAsync({tofSound})
+        end)
+        pcall(function()
+            tofSound:Play()
+        end)
+    end)
+end
+
+Hooks["Pilih Sound"] = function(value)
+    Values["Pilih Sound"] = tostring(value or "Sound 1")
+    if Values["Sound TOF"] then
+        playTOFSound()
+    end
+end
+
+Hooks["Sound TOF"] = function(on)
+    Values["Sound TOF"] = on == true
+    if Values["Sound TOF"] then
+        playTOFSound()
+    elseif tofSound then
+        pcall(function() tofSound:Stop() end)
+    end
+end
+
+-- =========================================================
+-- ANTI AFK / SERVER
+-- =========================================================
+
+Hooks["Stay Active (Anti AFK)"] = function(on)
+    if not on then return end
+
+    FeatureManager:Connect("Stay Active (Anti AFK)", player.Idled, function()
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end)
+end
+
+Hooks["Rejoin Server"] = function()
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+end
+
+local sessionConfigs = {}
+local autoloadConfig = nil
+
+local colorPresets = {
+    Black = Color3.fromRGB(8, 8, 10),
+    ["Dark Purple"] = Color3.fromRGB(18, 10, 30),
+    Purple = Color3.fromRGB(70, 35, 110),
+    Violet = Color3.fromRGB(105, 55, 170),
+    Blue = Color3.fromRGB(35, 90, 180),
+    ["Dark Blue"] = Color3.fromRGB(18, 30, 60),
+    Navy = Color3.fromRGB(15, 25, 45),
+    ["Dark Gray"] = Color3.fromRGB(28, 28, 32),
+    Cyan = Color3.fromRGB(30, 180, 200),
+    Pink = Color3.fromRGB(220, 80, 180),
+    Red = Color3.fromRGB(210, 60, 70),
+    Green = Color3.fromRGB(65, 190, 100),
+    Orange = Color3.fromRGB(230, 135, 45),
+    Yellow = Color3.fromRGB(230, 200, 55),
+    White = Color3.fromRGB(245, 245, 245),
+    ["Light Gray"] = Color3.fromRGB(205, 205, 210),
+    Gray = Color3.fromRGB(155, 155, 160),
+}
+
+local themePresets = {
+    ["BBot"] = {main="Black", accent="Purple", outline="White", font="White", background="Black"},
+    ["Fatality"] = {main="Dark Purple", accent="Red", outline="Red", font="White", background="Black"},
+    ["Jester"] = {main="Dark Purple", accent="Pink", outline="White", font="White", background="Purple"},
+    ["Mint"] = {main="Dark Gray", accent="Green", outline="White", font="White", background="Dark Gray"},
+    ["Tokyo Night"] = {main="Dark Purple", accent="Violet", outline="Purple", font="White", background="Dark Purple"},
+    ["Ubuntu"] = {main="Dark Gray", accent="Orange", outline="White", font="White", background="Dark Gray"},
+    ["Quartz"] = {main="Dark Gray", accent="Cyan", outline="White", font="White", background="Black"},
+}
+
+local fontMap = {
+    Fantast = Enum.Font.Fantasy,
+    Goth = Enum.Font.Gotham,
+    Jura = Enum.Font.Gotham,
+    Roboto = Enum.Font.Gotham,
+    RobotoMono = Enum.Font.Code,
+    SourceSans = Enum.Font.SourceSans,
+}
+
+local function applyConfigVisuals()
+    local mainName = Values["Main Color Value"] or "Purple"
+    local accentName = Values["Accent Color Value"] or "Purple"
+    local outlineName = Values["Outline Color Value"] or "White"
+    local fontName = Values["Font Color Value"] or "White"
+    local bgName = Values["Background Color Value"] or "Dark Purple"
+
+    local mainColor = colorPresets[mainName] or ACCENT
+    local accentColor = colorPresets[accentName] or ACCENT
+    local outlineColor = colorPresets[outlineName] or Color3.new(1,1,1)
+    local fontColor = colorPresets[fontName] or TEXT
+    local bgColor = colorPresets[bgName] or BG
+
+    if Values["Main Color"] ~= false then
+        ACCENT = mainColor
+        PANEL = mainColor:Lerp(Color3.new(0,0,0), 0.55)
+        FIELD = mainColor:Lerp(Color3.new(0,0,0), 0.25)
+    end
+    if Values["Accent Color"] ~= false then
+        ACCENT = accentColor
+    end
+    if Values["Background Color"] ~= false then
+        BG = bgColor
+    end
+
+    window.BackgroundColor3 = BG
+    wStroke.Color = Values["Outline Color"] == false and Color3.new(1,1,1) or outlineColor
+    if bgDark then bgDark.BackgroundColor3 = BG:Lerp(Color3.new(0,0,0), 0.65) end
+    if logoBadge then
+        local stroke = logoBadge:FindFirstChildOfClass("UIStroke")
+        if stroke then stroke.Color = ACCENT end
+    end
+    if iconStroke then iconStroke.Color = outlineColor end
+
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.TextColor3 == TEXT or obj.TextColor3 == Color3.fromRGB(220,220,220) then
+                obj.TextColor3 = fontColor
+            end
+        end
+    end
+
+    local face = fontMap[Values["Font Face"] or "Roboto"] or Enum.Font.Gotham
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            obj.Font = face
+        end
+    end
+
+    for _, obj in ipairs(cornerObjects) do
+        if obj and obj.Parent then
+            obj.CornerRadius = UDim.new(0, math.clamp(tonumber(Values["Corner Radius"]) or 10, 0, 20))
+        end
+    end
+
+    for _, obj in ipairs(window:GetDescendants()) do
+        if obj:IsA("Frame") and obj.BackgroundColor3 == FIELD then
+            obj.BackgroundColor3 = FIELD
+        end
+    end
+end
+
+Hooks["Corner Radius"] = function(value)
+    Values["Corner Radius"] = math.clamp(tonumber(value) or 10, 0, 20)
+    applyConfigVisuals()
+end
+
+Hooks["Custom Cursor"] = function(on)
+    pcall(function()
+        UIS.MouseIconEnabled = not on
+    end)
+end
+
+Hooks["Lock GUI"] = function(on)
+    Values["Lock GUI"] = on == true
+end
+
+Hooks["Menu Bind"] = function(value)
+    Values["Menu Bind"] = typeof(value) == "EnumItem" and value or (Enum.KeyCode[tostring(value)] or Enum.KeyCode.RightShift)
+end
+
+local function themeValue(name)
+    return colorPresets[name] or ACCENT
+end
+
+for _, key in ipairs({"Background Color Value", "Main Color Value", "Accent Color Value", "Outline Color Value", "Font Color Value", "Font Face"}) do
+    Hooks[key] = function() applyConfigVisuals() end
+end
+
+Hooks["Theme List"] = function(theme)
+    local t = themePresets[theme]
+    if not t then return end
+    local map = {
+        ["Background Color Value"] = t.background,
+        ["Main Color Value"] = t.main,
+        ["Accent Color Value"] = t.accent,
+        ["Outline Color Value"] = t.outline,
+        ["Font Color Value"] = t.font,
+    }
+    for key, value in pairs(map) do
+        Values[key] = value
+        if Controls[key] and Controls[key].set then
+            Controls[key].set(value)
+        end
+    end
+    applyConfigVisuals()
+end
+
+local function configSnapshot()
+    local snapshot = {}
+    for key, value in pairs(Values) do
+        if typeof(value) == "EnumItem" then
+            snapshot[key] = value.Name
+        elseif type(value) ~= "table" then
+            snapshot[key] = value
+        end
+    end
+    return snapshot
+end
+
+local function applySnapshot(snapshot)
+    if type(snapshot) ~= "table" then return end
+    for key, value in pairs(snapshot) do
+        local control = Controls[key]
+        if control and control.set then
+            pcall(function() control.set(value) end)
+        else
+            Values[key] = value
+        end
+    end
+    applyConfigVisuals()
+end
+
+local function configNames()
+    local names = {}
+    for name in pairs(sessionConfigs) do table.insert(names, name) end
+    table.sort(names)
+    if #names == 0 then names[1] = "No Config" end
+    return names
+end
+
+local function refreshConfigDropdown(selected)
+    local list = configNames()
+    local current = selected or Values["Config List"]
+    if not sessionConfigs[current] and current ~= "No Config" then
+        current = list[1]
+    end
+    Values["Config List"] = current
+    local control = Controls["Config List"]
+    if control and control.setOptions then
+        control.setOptions(list, current)
+    elseif control and control.set then
+        control.set(current)
+    end
+    return list
+end
+
+Hooks["Create Config"] = function()
+    local name = tostring(Values["Config Name"] or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if name == "" then
+        warn("[Aletta] Config Name masih kosong.")
+        return
+    end
+    sessionConfigs[name] = configSnapshot()
+    refreshConfigDropdown(name)
+    print("[Aletta] Config dibuat:", name)
+end
+
+Hooks["Load Config"] = function()
+    local name = Values["Config List"]
+    local snapshot = sessionConfigs[name]
+    if snapshot then
+        applySnapshot(snapshot)
+        print("[Aletta] Config dimuat:", name)
+    end
+end
+
+Hooks["Overwrite Config"] = function()
+    local name = Values["Config List"]
+    if not sessionConfigs[name] then return end
+    sessionConfigs[name] = configSnapshot()
+    print("[Aletta] Config ditimpa:", name)
+end
+
+Hooks["Delete Config"] = function()
+    local name = Values["Config List"]
+    if name and sessionConfigs[name] then
+        sessionConfigs[name] = nil
+        refreshConfigDropdown()
+        print("[Aletta] Config dihapus:", name)
+    end
+end
+
+Hooks["Refresh List"] = function()
+    refreshConfigDropdown()
+end
+
+Hooks["Set as Autoload"] = function()
+    local name = Values["Config List"]
+    if sessionConfigs[name] then
+        autoloadConfig = name
+        print("[Aletta] Autoload:", name)
+    end
+end
+
+Hooks["Reset Autoload"] = function()
+    autoloadConfig = nil
+    print("[Aletta] Autoload di-reset.")
+end
+
+Hooks["Save Config Now"] = function()
+    local name = tostring(Values["Config Name"] or "Session")
+    sessionConfigs[name] = configSnapshot()
+    print("[Aletta] Config snapshot disimpan di sesi:", name)
+end
+
+Hooks["Reset to Default"] = function()
+    for name, default in pairs(Defaults) do
+        local control = Controls[name]
+        if control and control.set then
+            pcall(function() control.set(default) end)
+        else
+            Values[name] = default
+        end
+    end
+    applyConfigVisuals()
+end
+
+Hooks["Delete Config File"] = function()
+    print("[Aletta] Build ini tidak memakai filesystem exploit; gunakan Configuration untuk config sesi.")
+end
+
+-- =========================================================
+-- INFO / SOCIAL / SERVER
+-- =========================================================
+
+local function openExternalUrl(url)
+    local ok = pcall(function()
+        GuiService:OpenBrowserWindow(url)
+    end)
+    if not ok then
+        warn("[Aletta] Browser tidak dapat dibuka otomatis: " .. tostring(url))
+    end
+end
+
+local function copyText(value)
+    if type(setclipboard) == "function" then
+        local ok = pcall(setclipboard, tostring(value))
+        if ok then return true end
+    end
+    print("[Aletta] Copy value:", tostring(value))
+    return false
+end
+
+Hooks["Join Discord"] = function()
+    openExternalUrl("https://discord.gg/JGNVEK6s7")
+end
+
+Hooks["Open TikTok"] = function()
+    openExternalUrl("https://www.tiktok.com/@alettamelindaw?_r=1&_t=ZS-9A37fLCEEYZ")
+end
+
+Hooks["Copy Server ID"] = function()
+    copyText(game.JobId)
+end
+
+Hooks["Rejoin Server"] = function()
+    pcall(function()
+        TeleportService:Teleport(game.PlaceId, player)
+    end)
+end
+
+Hooks["Server Hop"] = function()
+    -- Tanpa HTTP/server-list eksternal: minta matchmaking Roblox membuat sesi baru.
+    pcall(function()
+        TeleportService:TeleportAsync(game.PlaceId, {player})
+    end)
+end
+
+Hooks["Destroy UI"] = function()
+    if gui and gui.Parent then
+        gui:Destroy()
+    end
+end
+
+-- =========================================================
+-- EMOTE TEST
+-- =========================================================
+
+Hooks["Play Emote"] = function()
+    local h = humanoid()
+    if not h then return end
+
+    local animator = h:FindFirstChildOfClass("Animator")
+    if not animator then return end
+
+    print("[Aletta] Selected emote:", Values["Select Emote"])
+    print("[Aletta] Masukkan AnimationId resmi project jika ingin memainkan animasi.")
+end
+
+Hooks["Stop Emote"] = function()
+    local h = humanoid()
+    if not h then return end
+
+    for _, track in ipairs(h:GetPlayingAnimationTracks()) do
+        pcall(function()
+            track:Stop(0.15)
+        end)
+    end
+end
+
+-- =========================================================
+-- ESP
+-- =========================================================
+
+espFolder = Instance.new("Folder")
+espFolder.Name = "AlettaESP"
+espFolder.Parent = workspace
+
+espGui = Instance.new("ScreenGui")
+espGui.Name = "AlettaESPLabels"
+espGui.ResetOnSpawn = false
+espGui.IgnoreGuiInset = true
+espGui.Parent = playerGui
+
+local espColorMap = {
+    Survivor = Color3.fromRGB(70, 220, 255),
+    Killer = Color3.fromRGB(255, 80, 80),
+    Zombie = Color3.fromRGB(190, 70, 255),
+    Generator = Color3.fromRGB(255, 235, 50),
+    Gate = Color3.fromRGB(255, 190, 50),
+    Hook = Color3.fromRGB(255, 90, 130),
+    Pallet = Color3.fromRGB(255, 150, 50)
+}
+
+local function clearESP()
+    if espFolder then
+        for _, object in ipairs(espFolder:GetChildren()) do
+            object:Destroy()
+        end
+    end
+
+    if espGui then
+        for _, object in ipairs(espGui:GetChildren()) do
+            object:Destroy()
+        end
+    end
+end
+
+local function roleOf(targetPlayer)
+    local c = targetPlayer.Character
+
+    local role = (c and c:GetAttribute("Role"))
+        or targetPlayer:GetAttribute("Role")
+
+    return role and tostring(role) or "Survivor"
+end
+
+local function espColor(role)
+    local customName
+
+    if role == "Survivor" then
+        customName = "Survivor Color"
+    elseif role == "Killer" then
+        customName = "Killer Color"
+    else
+        customName = "Zombie Dummy Color"
+    end
+
+    local custom = Values[customName]
+
+    local map = {
+        Purple = ACCENT,
+        Red = Color3.fromRGB(255, 70, 70),
+        Green = Color3.fromRGB(70, 255, 100),
+        Blue = Color3.fromRGB(70, 140, 255),
+        Cyan = Color3.fromRGB(60, 220, 255),
+        Yellow = Color3.fromRGB(255, 220, 50),
+        Orange = Color3.fromRGB(255, 150, 50),
+        White = TEXT
+    }
+
+    return map[custom] or espColorMap[role] or ACCENT
+end
+
+local function addCharacterESP(targetPlayer)
+    if targetPlayer == player then return end
+
+    local c = targetPlayer.Character
+    local h = c and c:FindFirstChildOfClass("Humanoid")
+    local targetRoot = c and c:FindFirstChild("HumanoidRootPart")
+
+    if not c or not h or not targetRoot or h.Health <= 0 then return end
+
+    local role = roleOf(targetPlayer)
+
+    if role == "Killer" and not Values["ESP Killer"] then return end
+    if role == "Survivor" and not Values["ESP Survivor"] then return end
+    if role ~= "Killer" and role ~= "Survivor"
+        and not Values["ESP Zombie Dummy"] then
+        return
+    end
+
+    local color = espColor(role)
+
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = c
+    highlight.FillTransparency = 0.82
+    highlight.OutlineTransparency = 0
+    highlight.OutlineColor = color
+    highlight.FillColor = color
+    highlight.Parent = espFolder
+
+    if Values["Show Name"]
+        or Values["Show Distance"]
+        or Values["Show Health"] then
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Adornee = targetRoot
+        billboard.Size = UDim2.fromOffset(180, 45)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = espFolder
+
+        local text = Instance.new("TextLabel")
+        text.BackgroundTransparency = 1
+        text.Size = UDim2.fromScale(1, 1)
+        text.Font = Enum.Font.GothamBold
+        text.TextSize = 12
+        text.TextColor3 = color
+        text.TextStrokeTransparency = 0.2
+        text.Parent = billboard
+
+        local parts = {}
+
+        if Values["Show Name"] then
+            table.insert(parts, targetPlayer.Name)
+        end
+
+        if Values["Show Health"] then
+            table.insert(parts, "[" .. math.floor(h.Health) .. " HP]")
+        end
+
+        if Values["Show Distance"] then
+            local myRoot = root()
+
+            if myRoot then
+                table.insert(
+                    parts,
+                    "[" .. math.floor(
+                        (myRoot.Position - targetRoot.Position).Magnitude
+                    ) .. " M]"
+                )
+            end
+        end
+
+        text.Text = table.concat(parts, " ")
+        billboard.Parent = espGui
+    end
+end
+
+local function objectKind(object)
+    local name = object.Name:lower()
+
+    if name:find("generator") then
+        return "Generator"
+    elseif name:find("gate") or name:find("exit") then
+        return "Gate"
+    elseif name:find("hook") or name:find("scourge") then
+        return "Hook"
+    elseif name:find("pallet") then
+        return "Pallet"
+    end
+
+    return nil
+end
+
+local function addObjectESP(object, kind)
+    if kind == "Generator" and not Values["ESP Generator"] then return end
+    if kind == "Gate" and not Values["ESP Gate"] then return end
+    if kind == "Hook" and not Values["ESP Hook"] then return end
+    if kind == "Pallet" and not Values["ESP Pallet"] then return end
+
+    local part = object:IsA("BasePart")
+        and object
+        or object:FindFirstChildWhichIsA("BasePart", true)
+
+    if not part then return end
+
+    local map = {
+        Purple = ACCENT,
+        Red = Color3.fromRGB(255, 70, 70),
+        Green = Color3.fromRGB(70, 255, 100),
+        Blue = Color3.fromRGB(70, 140, 255),
+        Cyan = Color3.fromRGB(60, 220, 255),
+        Yellow = Color3.fromRGB(255, 220, 50),
+        Orange = Color3.fromRGB(255, 150, 50),
+        White = TEXT,
+        Pink = Color3.fromRGB(255, 100, 200)
+    }
+
+    local color = map[Values[kind .. " Color"]] or espColorMap[kind]
+
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = object
+    highlight.FillTransparency = 0.88
+    highlight.OutlineColor = color
+    highlight.FillColor = color
+    highlight.Parent = espFolder
+
+    if Values["Show Name"] or Values["Show Distance"] then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Adornee = part
+        billboard.Size = UDim2.fromOffset(150, 30)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = espFolder
+
+        local text = Instance.new("TextLabel")
+        text.BackgroundTransparency = 1
+        text.Size = UDim2.fromScale(1, 1)
+        text.Font = Enum.Font.GothamBold
+        text.TextSize = 12
+        text.TextColor3 = color
+        text.TextStrokeTransparency = 0.2
+        text.Parent = billboard
+
+        local displayText = Values["Show Name"] and object.Name or kind
+        local myRoot = root()
+
+        if Values["Show Distance"] and myRoot then
+            displayText = displayText .. " [" ..
+                math.floor((myRoot.Position - part.Position).Magnitude) ..
+                " M]"
+        end
+
+        text.Text = displayText
+        billboard.Parent = espGui
+    end
+end
+
+local function rebuildESP()
+    clearESP()
+
+    if not Values["Enable ESP"] then return end
+
+    for _, targetPlayer in ipairs(Players:GetPlayers()) do
+        addCharacterESP(targetPlayer)
+    end
+
+    for _, object in ipairs(workspace:GetDescendants()) do
+        local kind = objectKind(object)
+
+        if kind and (object:IsA("Model") or object:IsA("BasePart")) then
+            addObjectESP(object, kind)
+        end
+    end
+end
+
+Hooks["Enable ESP"] = function(on)
+    if on then
+        rebuildESP()
+
+        local lastRebuild = 0
+
+        FeatureManager:Connect("Enable ESP", RunService.Heartbeat, function()
+            local now = os.clock()
+
+            if now - lastRebuild >= 1 then
+                lastRebuild = now
+                rebuildESP()
+            end
+        end)
+    else
+        clearESP()
+    end
+end
+
+for _, name in ipairs({
+    "ESP Survivor",
+    "ESP Killer",
+    "ESP Zombie Dummy",
+    "ESP Generator",
+    "ESP Gate",
+    "ESP Hook",
+    "ESP Pallet",
+    "Show Name",
+    "Show Distance",
+    "Show Health",
+    "Survivor Color",
+    "Killer Color",
+    "Zombie Dummy Color",
+    "Generator Color",
+    "Gate Color",
+    "Hook Color",
+    "Pallet Color"
+}) do
+    Hooks[name] = function()
+        if Values["Enable ESP"] then
+            rebuildESP()
+        end
+    end
+end
+
+-- =========================================================
+-- MOONWALK
+-- =========================================================
+
+local function setMWIndicator(on)
+    if not mwGui then
+        mwGui = Instance.new("ScreenGui")
+        mwGui.Name = "AlettaMWIndicator"
+        mwGui.ResetOnSpawn = false
+        mwGui.IgnoreGuiInset = true
+        mwGui.Parent = playerGui
+
+        mwButton = Instance.new("TextButton")
+        mwButton.Size = UDim2.fromOffset(64, 42)
+        mwButton.Position = UDim2.new(1, -86, 1, -190)
+        mwButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        mwButton.TextColor3 = TEXT
+        mwButton.Font = Enum.Font.GothamBold
+        mwButton.TextSize = 16
+        mwButton.Text = "MW"
+        mwButton.Visible = false
+        mwButton.Parent = mwGui
+        corner(mwButton, 21)
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 2
+        stroke.Parent = mwButton
+
+        mwButton.Activated:Connect(function()
+            FeatureManager:Toggle("Enable Moonwalk (Hold Hotkey/Button)")
+        end)
+    end
+
+    mwButton.Visible = on
+    mwButton.BackgroundColor3 =
+        on and ACCENT or Color3.fromRGB(30, 30, 30)
+end
+
+Hooks["Enable Moonwalk (Hold Hotkey/Button)"] = function(on)
+    setMWIndicator(on)
+
+    if not on then return end
+
+    FeatureManager:Connect(
+        "Enable Moonwalk (Hold Hotkey/Button)",
+        RunService.RenderStepped,
+        function()
+            local c = character()
+            local h = humanoid()
+            local r = root()
+
+            if not c or not h or not r then return end
+
+            camera = workspace.CurrentCamera or camera
+            if not camera then return end
+
+            local look = camera.CFrame.LookVector
+            local flat = Vector3.new(look.X, 0, look.Z)
+
+            if flat.Magnitude > 0.05 then
+                r.CFrame = CFrame.lookAt(
+                    r.Position,
+                    r.Position + flat.Unit
+                )
+            end
+        end
+    )
+end
+
+-- =========================================================
+-- SAFE GAME-SPECIFIC TEST HANDLERS
+-- =========================================================
+
+-- =========================================================
+-- MISC LOCAL/TEST HOOKS
+-- =========================================================
+
+local miscOriginal = {
+    CameraMaxZoomDistance = camera and camera.CameraType == Enum.CameraType.Custom and player.CameraMaxZoomDistance or nil,
+    WalkSpeed = nil,
+    JumpPower = nil,
+    LightingBrightness = Lighting.Brightness,
+    ClockTime = Lighting.ClockTime,
+    FogEnd = Lighting.FogEnd
+}
+
+local function getHumanoid()
+    local character = player.Character
+    return character and character:FindFirstChildOfClass("Humanoid")
+end
+
+Hooks["Camera DBD"] = function(on)
+    Values["Camera DBD"] = on == true
+end
+
+Hooks["Camera Height"] = function(value)
+    Values["Camera Height"] = tonumber(value) or 0
+end
+
+Hooks["Camera Stiffness"] = function(value)
+    Values["Camera Stiffness"] = tonumber(value) or 0
+end
+
+Hooks["Custom Resolution"] = function(on)
+    Values["Custom Resolution"] = on == true
+    print("[Aletta] Custom Resolution is a GUI/test setting; Roblox client resolution is not changed by this LocalScript.")
+end
+
+Hooks["Noclip"] = function(on)
+    if not on then return end
+    print("[Aletta] Noclip enabled as a test toggle. Server collision/validation remains authoritative.")
+end
+
+Hooks["FullBright"] = function(on)
+    if on then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 100000
+    else
+        Lighting.Brightness = miscOriginal.LightingBrightness or Lighting.Brightness
+        Lighting.ClockTime = miscOriginal.ClockTime or Lighting.ClockTime
+        Lighting.FogEnd = miscOriginal.FogEnd or Lighting.FogEnd
+    end
+end
+
+Hooks["Fullbright Time"] = function(value)
+    Values["Fullbright Time"] = tonumber(value) or 16
+    if Values["FullBright"] then
+        Lighting.ClockTime = Values["Fullbright Time"]
+    end
+end
+
+Hooks["Infinite Zoom"] = function(on)
+    if on then
+        player.CameraMaxZoomDistance = 100000
+    else
+        player.CameraMaxZoomDistance = miscOriginal.CameraMaxZoomDistance or 128
+    end
+end
+
+Hooks["High Jump"] = function(on)
+    local h = getHumanoid()
+    if not h then return end
+    if on then
+        miscOriginal.JumpPower = h.JumpPower
+        h.JumpPower = tonumber(Values["Jump Power"]) or 50
+    else
+        h.JumpPower = miscOriginal.JumpPower or 50
+    end
+end
+
+Hooks["Jump Power"] = function(value)
+    Values["Jump Power"] = tonumber(value) or 50
+    if Values["High Jump"] then
+        local h = getHumanoid()
+        if h then h.JumpPower = Values["Jump Power"] end
+    end
+end
+
+Hooks["Skip Cutscene"] = function(on)
+    if on then
+        print("[Aletta] Skip Cutscene ON - hook game-specific diperlukan untuk memutus cutscene dengan aman.")
+    end
+end
+
+Hooks["Invisible GUI"] = function(on)
+    if gui then
+        window.Visible = not on
+    end
+end
+
+Hooks["Unlock FPS"] = function(on)
+    print("[Aletta] Unlock FPS:", on, "Target FPS:", Values["Target FPS"] or "60")
+end
+
+Hooks["Target FPS"] = function(value)
+    Values["Target FPS"] = value
+    print("[Aletta] Target FPS set to", tostring(value), "(display setting)")
+end
+
+Hooks["Bridge Repair Generator"] = function() BridgeCall("Repair", {"generator", "gen"}) end
+Hooks["Bridge Skill Check"] = function() BridgeCall("SkillCheck") end
+Hooks["Bridge Vault"] = function() BridgeCall("Vault", {"vault", "window"}) end
+Hooks["Bridge Drop Pallet"] = function() BridgeCall("PalletDrop", {"pallet"}) end
+Hooks["Bridge Heal"] = function() BridgeCall("Heal", {"heal", "med"}) end
+Hooks["Bridge Unhook"] = function() BridgeCall("Unhook", {"hook"}) end
+Hooks["Bridge Crouch"] = function() BridgeCall("Crouch") end
+Hooks["Bridge Parry"] = function() BridgeCall("Parry") end
+Hooks["Bridge Basic Attack"] = function() BridgeCall("BasicAttack") end
+Hooks["Bridge Lunge"] = function() BridgeCall("Lunge") end
+Hooks["Bridge Carry"] = function() BridgeCall("Carry") end
+Hooks["Bridge Hook"] = function() BridgeCall("Hook", {"hook"}) end
+Hooks["Bridge Drop Survivor"] = function() BridgeCall("DropSurvivor") end
+Hooks["Bridge Break Pallet"] = function() BridgeCall("PalletBreak", {"pallet"}) end
+Hooks["Bridge Veil"] = function() BridgeCall("Veil") end
+Hooks["Bridge Rescan"] = function()
+    BridgeScan()
+    print("[Aletta Bridge] " .. Bridge.LastStatus)
+end
+Hooks["Bridge Status"] = function()
+    print("[Aletta Bridge] " .. Bridge.LastStatus)
+end
+
+local gameSpecific = {
+    "Invisible",
+    "Speed Boost",
+    "No Fall Damage",
+    "Flee Killer (Auto TP Menjauh)",
+    "Auto Gen Rush",
+    "Bypass Generator",
+    "Enable Auto Skillcheck Perfect",
+    "King's Scourge",
+    "Bypass Gate",
+    "Instant Teleport (Gate)",
+    "Perfect Vault",
+    "Flowstate",
+    "Quick Recovery",
+    "Self Progress Heal",
+    "Auto Heal Team",
+    "Auto Parry V1",
+    "Auto Parry V2",
+    "Safety Parry",
+    "Aggressive Parry V1",
+    "Enable Auto Hook",
+    "Kill All (Risk Ban)",
+    "Auto Attack (No Animation)",
+    "No Flashlight (Anti Blind)",
+    "Drop All Pallets Instantly",
+    "No Cooldown (M2 & Q) [Hidden]",
+    "No Cooldown (Q & M2) [Myers]",
+    "No Cooldown (M2 & Q) [Abysswalker]",
+    "Infinite Frenzy [Jeff]",
+    "Infinite Pursuit & Invis [Jason]",
+    "Hidden M2 Aimbot (Nearest Visible)",
+    "Trigger Auto Parry (Fake Hit)",
+    "Instant Break (Pallet & Gen)",
+    "Silent Flask (The Cure)",
+    "Auto Aim Senter ke Killer",
+    "Auto Prediksi",
+    "Veil",
+    "Enable Custom Animation",
+    "Enable Avatar Changer",
+    "Predict Killer",
+    "Skip Cutscenes"
+}
+
+for _, name in ipairs(gameSpecific) do
+    if not Hooks[name] then
+        Hooks[name] = function(value)
+            Values[name] = value
+
+            if value == true then
+                print("[Aletta] " .. name ..
+                    " ON - menunggu integrasi resmi project/server.")
+            end
+        end
+    end
+end
+
+Hooks["Bypass Generator"] = function(on)
+    if not on then return end
+
+    print("[Aletta] Generator test enabled.")
+    print("[Aletta] Gunakan interaksi/proses server resmi project untuk aksi generator.")
+end
+
+Hooks["Enable Auto Skillcheck Perfect"] = function(on)
+    if on then
+        print("[Aletta] Auto Skillcheck test ON.")
+        print("[Aletta] Handler skillcheck server/client resmi diperlukan untuk aksi nyata.")
+    end
+end
+
+-- =========================================================
+-- HOTKEYS
+-- =========================================================
+
+local hotkeyMap = {
+    ["Speed Boost Hotkey"] = "Speed Boost",
+    ["Moonwalk Hotkey"] = "Enable Moonwalk (Hold Hotkey/Button)",
+    ["God Mode Hotkey"] = "Enable God Mode Shortcut",
+    ["Self Heal Hotkey"] = "Enable Self Heal Shortcut",
+    ["Beat Game Hotkey"] = "Enable Beat Game Shortcut",
+    ["Auto Parry V1 Hotkey"] = "Auto Parry V1",
+    ["Auto Parry V2 Hotkey"] = "Auto Parry V2",
+    ["Hotkey PC"] = "Enable Drop Pallet Shortcut",
+    ["Toggle Hotkey"] = "Enable Mask Selection GUI",
+    ["Pistol Hotkey"] = "Pistol",
+    ["Auto Prediksi Hotkey"] = "Auto Prediksi",
+    ["Mobile Target Shortcut Key"] = "Show Mobile Target Shortcut",
+    ["Veil Hotkey"] = "Veil",
+    ["Self Progress Heal Hotkey"] = "Self Progress Heal"
+}
+
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+
+    if Values["Open Keybind"] ~= false and input.KeyCode == (Values["Menu Bind"] or Enum.KeyCode.RightShift) then
+        if Values["Lock GUI"] == true then
+            -- Lock GUI only blocks dragging; menu bind still works.
+        end
+        window.Visible = not window.Visible
+        icon.Visible = true
+        closePopup()
+        return
+    end
+
+    for hotkeyName, featureName in pairs(hotkeyMap) do
+        local key = Values[hotkeyName]
+
+        if typeof(key) == "EnumItem" and key == input.KeyCode then
+            if Values[featureName] ~= nil then
+                FeatureManager:Toggle(featureName)
+            end
+        end
+    end
+end)
+
+-- =========================================================
+-- CHARACTER RESPAWN
+-- =========================================================
+
+player.CharacterAdded:Connect(function()
+    task.wait(0.25)
+
+    if Values["Enable Run Speed"] and Hooks["Enable Run Speed"] then
+        pcall(function()
+            Hooks["Enable Run Speed"](true)
+        end)
+    end
+
+    if Values["Custom FOV"] and Hooks["Custom FOV"] then
+        pcall(function()
+            Hooks["Custom FOV"](true)
+        end)
+    end
+
+    if Values["Enable ESP"] then
+        task.delay(0.5, rebuildESP)
+    end
+end)
+
+-- =========================================================
+-- CLEANUP
+-- =========================================================
+
+gui.Destroying:Connect(function()
+    FeatureManager:StopAll()
+    destroyCrosshair()
+    clearESP()
+
+    if mwGui then
+        mwGui:Destroy()
+        mwGui = nil
+        mwButton = nil
+    end
+end)
+
+print("[Aletta Creator] Loaded successfully.")
+print("[Aletta Creator] GUI icon asset:", ICON_ID)
+print("[Aletta Creator] FeatureManager:Toggle fixed.")
+print("[Aletta Creator] No lock emoji is used.")
+
+-- Initial Config visuals
+pcall(applyConfigVisuals)
+
+-- Tampilkan notifikasi saat script selesai dimuat.
+task.defer(showLoadNotification)
