@@ -242,7 +242,8 @@ local CONFIG = {
                 T("Safety Parry"),
                 T("Aggressive Parry"),
                 S("ESP Range", 0, 600, 600),
-                S("Parry Radius", 0, 26, 13),
+                S("Parry Radius", 2, 100, 13),
+                L("Auto Parry Cooldown  •  120 detik\n   Radius dapat diatur langsung dari slider di atas.", 42),
                 S("Face Sensitivity", 0, 11, 5),
                 L("Ignore Skills\n   - Hidden S1\n   - Abyssal S1", 58)
             }},
@@ -1721,7 +1722,7 @@ end
 -- PARRY DETECTION RANGE VISUAL
 -- =========================================================
 -- Lingkaran ini adalah area deteksi Auto Parry di sekitar karakter.
--- Radius mengikuti slider "ESP Range" pada Parry Menu.
+-- Radius mengikuti slider "Parry Radius" pada Parry Menu.
 local parryRangeVisual = nil
 
 local function destroyParryRangeVisual()
@@ -1740,7 +1741,7 @@ local function updateParryRangeVisual()
         return
     end
 
-    local radius = math.max(1, tonumber(Values["ESP Range"]) or 600)
+    local radius = math.clamp(tonumber(Values["Parry Radius"]) or 13, 2, 100)
 
     if not parryRangeVisual or parryRangeVisual.Parent ~= r then
         destroyParryRangeVisual()
@@ -1773,6 +1774,10 @@ end
 
 Hooks["ESP Range"] = function(value)
     Values["ESP Range"] = tonumber(value) or 600
+end
+
+Hooks["Parry Radius"] = function(value)
+    Values["Parry Radius"] = math.clamp(tonumber(value) or 13, 2, 100)
     if Values["Auto Parry"] or Values["Safety Parry"] or Values["Aggressive Parry"] then
         updateParryRangeVisual()
     end
@@ -3383,9 +3388,10 @@ end)
 -- =========================================================
 -- AUTO PARRY - PROJECT-LOCAL IMPLEMENTATION
 -- Uses the project's Parrying Dagger remote when it exists, with the normal
--- Tool:Activate() path as a secondary path. No guessed payload is sent.
+-- Tool:Activate() path as a secondary path. Cooldown is fixed at 120 seconds.
+-- Radius is controlled by Survivor > Parry Menu > Parry Radius.
 
-local AutoParry = { last=0, cooldown=.09, armed=false, lastResult=0, resultSeen=false }
+local AutoParry = { last=0, cooldown=120, armed=false, lastResult=0, resultSeen=false }
 
 local function getRootPart(model)
     return model and (model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("UpperTorso") or model:FindFirstChild("Torso"))
@@ -3458,7 +3464,7 @@ local function threatForKiller(p,myRoot,radius)
 end
 local function getThreat()
     local mr=root(); if not mr then return end
-    local radius=math.clamp(tonumber(Values["Parry Radius"]) or 13,2,60)
+    local radius=math.clamp(tonumber(Values["Parry Radius"]) or 13,2,100)
     if Values["Aggressive Parry"] then radius=math.max(radius,math.clamp(tonumber(Values["ESP Range"]) or radius,radius,60)) end
     local best
     for _,p in ipairs(Players:GetPlayers()) do
@@ -3492,7 +3498,7 @@ Hooks["Auto Parry"] = function(on)
         if not AutoParry.armed then return end
         updateParryRangeVisual()
         local t=getThreat(); if not t then return end
-        local radius=math.clamp(tonumber(Values["Parry Radius"]) or 13,2,60)
+        local radius=math.clamp(tonumber(Values["Parry Radius"]) or 13,2,100)
         local safety=Values["Safety Parry"]==true
         local aggressive=Values["Aggressive Parry"]==true
         local should=false
