@@ -13,7 +13,6 @@
 --// placeholder/test state. Jangan gunakan client untuk bypass validasi server.
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
@@ -70,113 +69,6 @@ local Hooks = {}
 local Defaults = {}
 local Controls = {}
 local FeatureConnections = {}
-
--- =========================================================
--- DEVELOPER BRIDGE (tetap di dalam GUI Aletta Creator)
--- Tidak membuat GUI kedua. Bridge hanya memakai endpoint yang memang
--- tersedia di ReplicatedStorage project dan dipakai sebagai test hook.
--- =========================================================
-local Bridge = {
-    Remotes = {},
-    Count = 0,
-    LastStatus = "Belum discan"
-}
-
-local BRIDGE_REMOTE_NAMES = {
-    Repair = {"RepairEvent"},
-    SkillCheck = {"SkillCheckEvent", "SkillCheck"},
-    Vault = {"VaultCommit", "VaultEvent", "fastvault"},
-    PalletDrop = {"PalletDropCommit", "PalletDropEvent"},
-    PalletSlide = {"PalletSlideEvent"},
-    PalletBreak = {"PalletBreakCommit"},
-    Heal = {"HealEvent"},
-    Unhook = {"SelfUnHookEvent", "UnHookEvent"},
-    Crouch = {"Crouch"},
-    BasicAttack = {"BasicAttack", "AttackEvent"},
-    Lunge = {"Lunge"},
-    Carry = {"CarrySurvivorEvent"},
-    Hook = {"HookEvent"},
-    DropSurvivor = {"DropSurvivorEvent"},
-    Gate = {"LeverEvent", "gate"},
-    Parry = {"parry"},
-    Veil = {"Addveil", "Veil"}
-}
-
-local function BridgeScan()
-    table.clear(Bridge.Remotes)
-    local root = ReplicatedStorage:FindFirstChild("Remotes") or ReplicatedStorage
-    for _, object in ipairs(root:GetDescendants()) do
-        if object:IsA("RemoteEvent") or object:IsA("RemoteFunction") then
-            Bridge.Remotes[object.Name] = object
-        end
-    end
-    local count = 0
-    for _ in pairs(Bridge.Remotes) do count += 1 end
-    Bridge.Count = count
-    Bridge.LastStatus = "Connected • " .. tostring(count) .. " endpoints"
-    return count
-end
-
-local function BridgeFind(list)
-    for _, name in ipairs(list) do
-        local remote = Bridge.Remotes[name]
-        if remote then return remote end
-    end
-end
-
-local function BridgeTarget(words, maxRange)
-    if not words or #words == 0 then return nil end
-    local character = player.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-
-    local nearest, nearestDistance = nil, maxRange or 70
-    for _, object in ipairs(workspace:GetDescendants()) do
-        if object:IsA("Model") and object ~= character then
-            local lowerName = object.Name:lower()
-            local matched = false
-            for _, word in ipairs(words) do
-                if lowerName:find(word) then matched = true break end
-            end
-            if matched then
-                local part = object.PrimaryPart or object:FindFirstChildWhichIsA("BasePart", true)
-                if part then
-                    local distance = (part.Position - root.Position).Magnitude
-                    if distance < nearestDistance then
-                        nearest, nearestDistance = object, distance
-                    end
-                end
-            end
-        end
-    end
-    return nearest
-end
-
-local function BridgeCall(key, targetWords)
-    local remote = BridgeFind(BRIDGE_REMOTE_NAMES[key] or {})
-    if not remote then
-        Bridge.LastStatus = key .. " • endpoint tidak ditemukan"
-        warn("[Aletta Bridge] " .. Bridge.LastStatus)
-        return false
-    end
-
-    local target = BridgeTarget(targetWords)
-    local ok = false
-    if remote:IsA("RemoteFunction") then
-        ok = pcall(function()
-            if target then remote:InvokeServer(target) else remote:InvokeServer() end
-        end)
-    else
-        ok = pcall(function()
-            if target then remote:FireServer(target) else remote:FireServer() end
-        end)
-    end
-
-    Bridge.LastStatus = key .. (ok and " • sent" or " • rejected")
-    return ok
-end
-
-BridgeScan()
 
 local function disconnectList(name)
     local list = FeatureConnections[name]
@@ -300,18 +192,6 @@ local CONFIG = {
             {name = "Survivor Controls", controls = {
                 L("Semua menu Survivor tersedia di bawah ini. Scroll untuk melihat seluruh fitur.", 42)
             }},
-            {name = "Developer Bridge", controls = {
-                L("Bridge terhubung ke endpoint project yang tersedia. Tombol di bawah hanya untuk test aksi resmi.", 48),
-                B("Bridge Repair Generator"),
-                B("Bridge Skill Check"),
-                B("Bridge Vault"),
-                B("Bridge Drop Pallet"),
-                B("Bridge Heal"),
-                B("Bridge Unhook"),
-                B("Bridge Crouch"),
-                B("Bridge Parry"),
-                B("Bridge Rescan")
-            }},
             {name = "Escape & Pallet", controls = {
                 B("Auto Escape [ 1x Click ]"),
                 B("Drop All Pallets [ 1x Click ]"),
@@ -375,17 +255,6 @@ local CONFIG = {
     {
         name = "Killer",
         features = {
-            {name = "Developer Bridge", controls = {
-                L("Bridge terhubung ke endpoint project yang tersedia. Tombol di bawah hanya untuk test aksi resmi.", 48),
-                B("Bridge Basic Attack"),
-                B("Bridge Lunge"),
-                B("Bridge Carry"),
-                B("Bridge Hook"),
-                B("Bridge Drop Survivor"),
-                B("Bridge Break Pallet"),
-                B("Bridge Veil"),
-                B("Bridge Rescan")
-            }},
             {name = "Killer Movement", controls = {
                 T("Walk Speed"),
                 S("Walk Speed Value", 0, 320, 160)
@@ -661,11 +530,6 @@ local CONFIG = {
                 D("Font Color Value", {"White", "Light Gray", "Gray", "Purple", "Cyan", "Pink", "Yellow"}, "White"),
                 D("Font Face", {"Fantast", "Goth", "Jura", "Roboto", "RobotoMono", "SourceSans"}, "Roboto"),
                 D("Theme List", {"BBot", "Fatality", "Jester", "Mint", "Tokyo Night", "Ubuntu", "Quartz"}, "Tokyo Night")
-            }},
-            {name = "Developer Bridge", controls = {
-                L("Endpoint bridge: " .. tostring(Bridge.Count) .. " • status: " .. Bridge.LastStatus, 38),
-                B("Bridge Rescan"),
-                B("Bridge Status")
             }},
             {name = "Configuration", controls = {
                 I("Config Name", "", "Masukan Nama"),
@@ -3173,29 +3037,6 @@ Hooks["Target FPS"] = function(value)
     print("[Aletta] Target FPS set to", tostring(value), "(display setting)")
 end
 
-Hooks["Bridge Repair Generator"] = function() BridgeCall("Repair", {"generator", "gen"}) end
-Hooks["Bridge Skill Check"] = function() BridgeCall("SkillCheck") end
-Hooks["Bridge Vault"] = function() BridgeCall("Vault", {"vault", "window"}) end
-Hooks["Bridge Drop Pallet"] = function() BridgeCall("PalletDrop", {"pallet"}) end
-Hooks["Bridge Heal"] = function() BridgeCall("Heal", {"heal", "med"}) end
-Hooks["Bridge Unhook"] = function() BridgeCall("Unhook", {"hook"}) end
-Hooks["Bridge Crouch"] = function() BridgeCall("Crouch") end
-Hooks["Bridge Parry"] = function() BridgeCall("Parry") end
-Hooks["Bridge Basic Attack"] = function() BridgeCall("BasicAttack") end
-Hooks["Bridge Lunge"] = function() BridgeCall("Lunge") end
-Hooks["Bridge Carry"] = function() BridgeCall("Carry") end
-Hooks["Bridge Hook"] = function() BridgeCall("Hook", {"hook"}) end
-Hooks["Bridge Drop Survivor"] = function() BridgeCall("DropSurvivor") end
-Hooks["Bridge Break Pallet"] = function() BridgeCall("PalletBreak", {"pallet"}) end
-Hooks["Bridge Veil"] = function() BridgeCall("Veil") end
-Hooks["Bridge Rescan"] = function()
-    BridgeScan()
-    print("[Aletta Bridge] " .. Bridge.LastStatus)
-end
-Hooks["Bridge Status"] = function()
-    print("[Aletta Bridge] " .. Bridge.LastStatus)
-end
-
 local gameSpecific = {
     "Invisible",
     "Speed Boost",
@@ -3336,6 +3177,179 @@ player.CharacterAdded:Connect(function()
     end
 end)
 
+-- =========================================================
+-- LYNX INTEGRATION LAYER (PROJECT-SAFE)
+-- =========================================================
+-- LYNX is Luraph-obfuscated, so its original RemoteEvent argument
+-- contract cannot be reconstructed reliably from names alone.
+-- This layer integrates only VERIFIED endpoint discovery from the
+-- supplied project. It never invents FireServer/InvokeServer args.
+
+local LynxIntegration = {}
+LynxIntegration.Status = {}
+
+local LynxEndpoints = {
+    Generator = {
+        "Remotes.Generator.RepairEvent",
+        "Remotes.Generator.ProgressUpdateEvent",
+        "Remotes.Generator.BreakGenEvent",
+        "Remotes.Generator.SkillCheckEvent",
+        "Remotes.Generator.SkillCheckResultEvent",
+        "Remotes.Generator.SkillCheckFailEvent",
+        "Remotes.Generator.RepairVFX",
+    },
+    Parry = {
+        "Remotes.Items.Parrying Dagger.parry",
+        "Remotes.Items.Parrying Dagger.parryResult",
+    },
+    Pallet = {
+        "Remotes.Pallet.PalletDropEvent",
+        "Remotes.Pallet.PalletDropCommit",
+        "Remotes.Pallet.PalletSlideEvent",
+        "Remotes.Pallet.PalletBroken",
+    },
+    Vault = {
+        "Remotes.Window.VaultEvent",
+        "Remotes.Window.VaultCommit",
+        "Remotes.Window.VaultReject",
+        "Remotes.Window.fastvault",
+    },
+    Attack = {
+        "Remotes.Attacks.BasicAttack",
+        "Remotes.Attacks.Lunge",
+        "Remotes.Attacks.AfterAttack",
+        "Remotes.Attacks.hit",
+    },
+    Carry = {
+        "Remotes.Carry.CarrySurvivorEvent",
+        "Remotes.Carry.DropSurvivorEvent",
+        "Remotes.Carry.PlayAnimation",
+    },
+    Hook = {
+        "Remotes.Carry.HookEvent",
+        "Remotes.Carry.UnHookEvent",
+        "Remotes.Carry.SelfUnHookEvent",
+        "Remotes.Carry.HookCommit",
+        "Remotes.Carry.HookReject",
+    },
+    Veil = {
+        "Remotes.Killers.Veil.Addveil",
+        "Remotes.Killers.Veil.Spearthrow",
+        "Remotes.Killers.Veil.visualize",
+        "Remotes.Killers.Veil.updatewep",
+    },
+}
+
+local function resolvePath(root, path)
+    local node = root
+    for part in string.gmatch(path, "[^%.]+") do
+        if part == "Remotes" then
+            node = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        else
+            if not node then return nil end
+            node = node:FindFirstChild(part)
+        end
+    end
+    return node
+end
+
+function LynxIntegration:Scan()
+    local found = 0
+    local total = 0
+    for system, paths in pairs(LynxEndpoints) do
+        self.Status[system] = {found = 0, total = #paths, endpoints = {}}
+        total += #paths
+        for _, path in ipairs(paths) do
+            local obj = resolvePath(game, path)
+            local ok = obj ~= nil
+            if ok then found += 1; self.Status[system].found += 1 end
+            table.insert(self.Status[system].endpoints, {
+                path = path,
+                exists = ok,
+                class = ok and obj.ClassName or "Missing",
+            })
+        end
+    end
+    self.Status.Total = {found = found, total = total}
+    return self.Status
+end
+
+function LynxIntegration:Get(system)
+    local list = self.Status[system]
+    if not list then return nil end
+    return list
+end
+
+function LynxIntegration:Report(system)
+    local s = self.Status[system]
+    if not s then return false end
+    print(string.format("[Aletta/Lynx] %s: %d/%d verified endpoints", system, s.found, s.total))
+    for _, ep in ipairs(s.endpoints) do
+        if ep.exists then
+            print("  [OK]", ep.path, ep.class)
+        else
+            print("  [--]", ep.path)
+        end
+    end
+    return s.found > 0
+end
+
+function LynxIntegration:Enable(system, featureName, on)
+    Values[featureName] = on
+    local s = self.Status[system]
+    if not on then
+        print("[Aletta/Lynx]", featureName, "OFF")
+        return
+    end
+    if not s then self:Scan(); s = self.Status[system] end
+    print(string.format("[Aletta/Lynx] %s ON | endpoints %d/%d", featureName, s.found, s.total))
+    if s.found == 0 then
+        warn("[Aletta/Lynx] No verified endpoint for " .. system)
+    else
+        print("[Aletta/Lynx] Endpoint discovered. Server contract/arguments are intentionally not guessed.")
+    end
+end
+
+-- Verified project mapping for the existing Aletta feature names.
+local lynxFeatureMap = {
+    ["Bypass Generator"] = {"Generator"},
+    ["Enable Auto Skillcheck Perfect"] = {"Generator"},
+    ["Auto Parry V1"] = {"Parry"},
+    ["Auto Parry V2"] = {"Parry"},
+    ["Safety Parry"] = {"Parry"},
+    ["Aggressive Parry V1"] = {"Parry"},
+    ["Perfect Vault"] = {"Vault"},
+    ["Drop All Pallets Instantly"] = {"Pallet"},
+    ["Auto Attack (No Animation)"] = {"Attack"},
+    ["Enable Auto Hook"] = {"Hook"},
+    ["Veil"] = {"Veil"},
+}
+
+for featureName, systems in pairs(lynxFeatureMap) do
+    local oldHook = Hooks[featureName]
+    Hooks[featureName] = function(value)
+        Values[featureName] = value
+        for _, system in ipairs(systems) do
+            LynxIntegration:Enable(system, featureName, value)
+        end
+        if oldHook and featureName ~= "Bypass Generator" and featureName ~= "Enable Auto Skillcheck Perfect" then
+            pcall(oldHook, value)
+        end
+    end
+end
+
+-- Carry is split from Hook in the project, so expose a dedicated status hook.
+Hooks["Carry Debug Adapter"] = function(value)
+    LynxIntegration:Enable("Carry", "Carry Debug Adapter", value)
+end
+
+-- Initial scan: this is discovery only; no remote is fired.
+task.defer(function()
+    local st = LynxIntegration:Scan()
+    print(string.format("[Aletta/Lynx] Project scan: %d/%d verified endpoints", st.Total.found, st.Total.total))
+end)
+
+-- =========================================================
 -- =========================================================
 -- CLEANUP
 -- =========================================================
