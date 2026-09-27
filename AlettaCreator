@@ -64,6 +64,12 @@ local Values = {}
 Values["Auto Skill Check Mode"] = "Legit"
 Values["Auto Skill Check"] = false
 Values["Auto Sprint Mobile"] = false
+Values["ESP Range"] = 600
+Values["ESP Distance"] = 600
+Values["Parry Radius"] = 13
+Values["Safety Parry"] = false
+Values["Aggressive Parry"] = false
+Values["Auto Parry"] = false
 
 local Hooks = {}
 local Defaults = {}
@@ -209,7 +215,7 @@ local CONFIG = {
                 T("Fake Parry [Keybind R]"),
                 T("Safety Parry"),
                 T("Aggressive Parry"),
-                S("Esp Range", 0, 600, 600),
+                S("ESP Range", 0, 600, 600),
                 S("Parry Radius", 0, 26, 13),
                 S("Face Sensitivity", 0, 11, 5),
                 L("Ignore Skills\n   - Hidden S1\n   - Abyssal S1", 58)
@@ -353,7 +359,7 @@ local CONFIG = {
                 T("Show Name"),
                 T("Show Distance"),
                 T("Show Health"),
-                S("ESP Distance", 0, 600, 600),
+                S("ESP Range", 0, 600, 600),
                 S("ESP Transparency", 0, 11, 2)
             }},
             {name = "Custom ESP Colors", controls = {
@@ -3045,12 +3051,17 @@ for _, name in ipairs({
 end
 
 -- Alias slider from Survivor > Parry Menu. It controls the same ESP distance.
-Hooks["Esp Range"] = function(value)
-    Values["ESP Distance"] = math.clamp(tonumber(value) or 600, 0, 600)
+Hooks["ESP Range"] = function(value)
+    local n = math.clamp(tonumber(value) or 600, 0, 600)
+    Values["ESP Range"] = n
+    Values["ESP Distance"] = n
     if Values["Enable ESP"] then
         rebuildESP()
     end
 end
+
+-- Compatibility alias for older configs.
+Hooks["Esp Range"] = Hooks["ESP Range"]
 
 -- =========================================================
 -- MOONWALK
@@ -3124,6 +3135,163 @@ end
 -- =========================================================
 -- SAFE GAME-SPECIFIC TEST HANDLERS
 -- =========================================================
+
+-- =========================================================
+-- AUTO PARRY - PROJECT-LOCAL TEST IMPLEMENTATION
+-- =========================================================
+-- Uses the equipped Parrying Dagger Tool's normal Activate() path instead
+-- of guessing FireServer arguments. This lets the game's own Tool/LocalScript
+-- send the correct parry request and keeps server validation authoritative.
+
+local AutoParry = {
+    last = 0,
+    cooldown = 0.22,
+    armed = false,
+}
+
+local function getRootPart(model)
+    if not model then return nil end
+    return model:FindFirstChild("HumanoidRootPart")
+        or model:FindFirstChild("UpperTorso")
+        or model:FindFirstChild("Torso")
+end
+
+local function findParryTool()
+    local c = character()
+    if c then
+        for _, v in ipairs(c:GetChildren()) do
+            if v:IsA("Tool") and (string.find(string.lower(v.Name), "parry") or string.find(string.lower(v.Name), "dagger")) then
+                return v
+            end
+        end
+    end
+    local backpack = player:FindFirstChildOfClass("Backpack")
+    if backpack then
+        for _, v in ipairs(backpack:GetChildren()) do
+            if v:IsA("Tool") and (string.find(string.lower(v.Name), "parry") or string.find(string.lower(v.Name), "dagger")) then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+local function isAttackTrack(track)
+    local n = string.lower(track.Name or "")
+    local id = string.lower(track.Animation and track.Animation.AnimationId or "")
+    local hay = n .. " " .. id
+    return hay:find("attack")
+        or hay:find("lunge")
+        or hay:find("slash")
+        or hay:find("swing")
+        or hay:find("hit")
+        or hay:find("m1")
+        or hay:find("m2")
+end
+
+local function killerCandidate(otherPlayer)
+    if not otherPlayer or otherPlayer == player then return nil end
+    local c = otherPlayer.Character
+    if not c then return nil end
+    local h = c:FindFirstChildOfClass("Humanoid")
+    local r = getRootPart(c)
+    if not h or h.Health <= 0 or not r then return nil end
+    return c, h, r
+end
+
+local function attackThreat()
+    local myRoot = root()
+    if not myRoot then return nil end
+
+    local radius = tonumber(Values["Parry Radius"]) or 13
+    local aggressive = Values["Aggressive Parry"] == true
+    local safety = Values["Safety Parry"] == true
+    if aggressive then
+        radius = math.max(radius, 18)
+    elseif safety then
+        radius = math.min(radius, 13)
+    end
+
+    local best, bestDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        local c, h, r = killerCandidate(p)
+        if c then
+            local delta = r.Position - myRoot.Position
+            local dist = delta.Magnitude
+            if dist <= radius and dist < bestDist then
+                local moving = r.AssemblyLinearVelocity.Magnitude
+                local tracks = h:GetPlayingAnimationTracks()
+                local attacking = false
+                for _, track in ipairs(tracks) do
+                    if track.IsPlaying and isAttackTrack(track) then
+                        attacking = true
+                        break
+                    end
+                end
+
+                -- Also accept a fast approach as a fallback for projects whose
+                -- animation names are stripped in exported/decompiled builds.
+                local toward = delta.Magnitude > 0 and r.AssemblyLinearVelocity:Dot(delta.Unit) or 0
+                if attacking or (moving > 7 and toward < -7 and dist <= radius * 0.72) then
+                    best = c
+                    bestDist = dist
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+local function doParry()
+    local now = os.clock()
+    if now - AutoParry.last < AutoParry.cooldown then return false end
+    local tool = findParryTool()
+    if not tool then return false end
+
+    AutoParry.last = now
+    local ok = pcall(function()
+        if tool.Parent ~= character() then
+            local h = humanoid()
+            if h then h:EquipTool(tool) end
+        end
+        task.wait()
+        tool:Activate()
+    end)
+    return ok
+end
+
+local function stopAutoParry()
+    disconnectList("Auto Parry")
+    AutoParry.armed = false
+end
+
+Hooks["Auto Parry"] = function(on)
+    stopAutoParry()
+    if not on then return end
+    AutoParry.armed = true
+    FeatureManager:Connect("Auto Parry", RunService.Heartbeat, function()
+        if not AutoParry.armed then return end
+        local target = attackThreat()
+        if target then
+            doParry()
+        end
+    end)
+end
+
+Hooks["Safety Parry"] = function(on)
+    Values["Safety Parry"] = on == true
+    if on then Values["Aggressive Parry"] = false end
+end
+
+Hooks["Aggressive Parry"] = function(on)
+    Values["Aggressive Parry"] = on == true
+    if on then Values["Safety Parry"] = false end
+end
+
+-- Existing V1/V2 toggles are aliases to the same real local implementation.
+Hooks["Auto Parry V1"] = Hooks["Auto Parry"]
+Hooks["Auto Parry V2"] = Hooks["Auto Parry"]
+Hooks["Aggressive Parry V1"] = Hooks["Aggressive Parry"]
 
 -- =========================================================
 -- MISC LOCAL/TEST HOOKS
